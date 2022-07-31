@@ -41,7 +41,12 @@ use frame_system::{
 	EnsureRoot,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
+pub use sp_runtime::{
+	MultiAddress, Perbill, Permill,
+	traits::{
+		IdentityLookup
+	}
+};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -56,8 +61,8 @@ use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::latest::prelude::BodyId;
 use xcm_executor::XcmExecutor;
 
-/// Import the template pallet.
-pub use pallet_template;
+/// Import the quadratic voting pallet.
+pub use quadratic_voting_pallet;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -176,8 +181,8 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("template-parachain"),
-	impl_name: create_runtime_str!("template-parachain"),
+	spec_name: create_runtime_str!("quadratic-voting-parachain"),
+	impl_name: create_runtime_str!("quadratic-voting-parachain"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 0,
@@ -460,8 +465,8 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
-/// Configure the pallet template in pallets/template.
-impl pallet_template::Config for Runtime {
+/// Configure the pallet in pallets/quadratic-voting-pallet.
+impl quadratic_voting_pallet::Config for Runtime {
 	type Event = Event;
 }
 
@@ -514,6 +519,10 @@ type TechnicalCommitteeMajority = EitherOfDiverse<
     pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>,
 >;
 
+impl pallet_sudo::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -554,7 +563,10 @@ construct_runtime!(
 		TechnicalCommittee: pallet_collective::<Instance2> = 35,
 
 
-		TemplatePallet: pallet_template::{Pallet, Call, Storage, Event<T>}  = 40,
+		QuadraticVotingPallet: quadratic_voting_pallet::{Pallet, Call, Storage, Event<T>}  = 40,
+
+		// Miscellaneous.
+		Sudo: pallet_sudo = 50,
 	}
 );
 

@@ -16,3 +16,6 @@
 .DS_Store
 .idea
 .vscode
+
+genesis-state
+genesis-wasm

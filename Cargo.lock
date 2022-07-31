@@ -5513,21 +5513,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-template"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.26#e8a7d161f39db70cb27fdad6c6e215cf493ebc3b"
@@ -5798,7 +5783,6 @@ dependencies = [
  "pallet-identity",
  "pallet-session",
  "pallet-sudo",
- "pallet-template",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -5807,6 +5791,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-parachain",
  "polkadot-runtime-common",
+ "quadratic-voting-pallet",
  "scale-info",
  "serde",
  "smallvec",
@@ -7450,6 +7435,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd89aa18fbf9533a581355a22438101fe9c2ed8c9e2f0dcf520552a3afddf2"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "quadratic-voting-pallet"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-identity",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
