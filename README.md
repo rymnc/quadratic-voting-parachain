@@ -1,22 +1,62 @@
-# Substrate Cumulus Parachain Template
+# Quadratic Voting Parachain
 
-A new [Cumulus](https://github.com/paritytech/cumulus/)-based Substrate node, ready for hacking ☁️..
+A [Cumulus](https://github.com/paritytech/cumulus/)-based Substrate node, which allows for quadratic voting with identities.
 
-This project is originally a fork of the
-[Substrate Node Template](https://github.com/substrate-developer-hub/substrate-node-template)
-modified to include dependencies required for registering this node as a **parathread** or
-**parachain** to a **relay chain**.
+## Protocol Design
 
-The stand-alone version of this template is hosted on the
-[Substrate Devhub Parachain Template](https://github.com/substrate-developer-hub/substrate-parachain-template/)
-for each release of Polkadot. It is generated directly to the upstream
-[Parachain Template in Cumulus](https://github.com/paritytech/cumulus/tree/master/parachain-template)
-at each release branch using the
-[Substrate Template Generator](https://github.com/paritytech/substrate-template-generator/).
+The quadratic voting protocol takes hints from Cardano's Governance Model, and is designed to be compatible with the [Spec](https://mdpi-res.com/d_attachment/information/information-13-00305/article_deploy/information-13-00305-v3.pdf?version=1655859835) defined. 
 
-👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains), and
-parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
+All stages of voting are restricted to the users that have an identity - and have not been slashed by the registrar.
+
+### Stages of Voting
+
+#### Proposal Phase (~1 week)
+
+1. A proposer creates a proposal and submits it to the chain, with a bond which will be returned to them upon vote execution.
+
+#### Pre Voting Phase (~1 week)
+
+1. The proposals are grouped into buckets of size `BUCKET_SIZE` (5), by using randomness from BABE.
+2. Voters register to be a part of any bucket they are interested in, with the stake proportional to how many votes they would like. This stake will be returned to them upon vote execution.
 
 
-🧙 Learn about how to use this template and run your own parachain testnet for it in the
-[Devhub Cumulus Tutorial](https://docs.substrate.io/tutorials/v3/cumulus/start-relay/).
+#### Voting Phase (~1 week)
+
+1. Voters can begin to assign their votes to the proposals in the buckets they registered for.
+
+
+#### Post Voting Phase (~3 days)
+
+1. The results are tallied by the voters for the buckets they registered for.
+2. A challenge period exists, during which any voter can challenge the results.
+3. The results are tallied again, and if there is a discrepency, the bucket is cancelled, and all voters are refunded, except for those who equivocated.
+
+#### Enactment Phase (~1 week)
+
+1. The vote is enacted by the technical committee
+2. The bonds are returned to the proposers
+3. The stake is returned to the voters
+
+
+## Technical Details
+
+### Pre-Existing Pallets used
+
+1. `cumulus-pallet-parachain-system` - The main pallet for the parachain.
+2. `pallet-balances`
+3. `pallet-transaction-payment`
+4. `pallet-authorship`
+5. `pallet-collator-selection`
+6. `pallet-session`
+7. `pallet-aura`
+8. `pallet-aura-ext`
+9. `cumulus-pallet-xcmp-queue`
+10. `pallet-xcm`
+11. `cumulus-pallet-xcm`
+12. `cumulus-pallet-dmp-queue`
+13. `pallet-identity`
+14. `pallet-collective`
+
+### Self Made Pallets
+
+1. `pallet-quadratic-voting`

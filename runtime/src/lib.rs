@@ -27,7 +27,9 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::Everything,
+	traits::{
+		Everything, EitherOfDiverse
+	},
 	weights::{
 		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, Weight,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -90,6 +92,10 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
+
+pub const TOKEN_DECIMALS: u32 = 12;
+pub const TOKEN: u128 = 10u128.pow(TOKEN_DECIMALS);
+pub const DEPOSIT_PER_BYTE: Balance = TOKEN / 1000;
 
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
@@ -459,6 +465,56 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	// bytes count taken from:
+	// https://github.com/paritytech/polkadot/blob/016dc7297101710db0483ab6ef199e244dff711d/runtime/kusama/src/lib.rs#L995
+	pub const BasicDeposit: Balance = 258 * DEPOSIT_PER_BYTE;
+	pub const FieldDeposit: Balance = 66 * DEPOSIT_PER_BYTE;
+	pub const SubAccountDeposit: Balance = 53 * DEPOSIT_PER_BYTE;
+	pub const MaxSubAccounts: u32 = 0;
+	pub const MaxAdditionalFields: u32 = 0;
+	pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
+	type SubAccountDeposit = SubAccountDeposit;
+	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
+	type MaxRegistrars = MaxRegistrars;
+	type Slashed = ();
+	type ForceOrigin = TechnicalCommitteeMajority;
+	type RegistrarOrigin = TechnicalCommitteeMajority;
+	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const TechnicalMotionDuration: BlockNumber = 3 * DAYS;
+	pub const TechnicalMaxProposals: u32 = 100;
+	pub const TechnicalMaxMembers: u32 = 100;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<TechnicalCollective> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = TechnicalMotionDuration;
+    type MaxProposals = TechnicalMaxProposals;
+    type MaxMembers = TechnicalMaxMembers;
+    type DefaultVote = pallet_collective::PrimeDefaultVote;
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+}
+
+type TechnicalCommitteeMajority = EitherOfDiverse<
+    frame_system::EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>,
+>;
+
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -491,7 +547,13 @@ construct_runtime!(
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
 
-		// Template
+		// Identity
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 34,
+		
+		// Technical Committee
+		TechnicalCommittee: pallet_collective::<Instance2> = 35,
+
+
 		TemplatePallet: pallet_template::{Pallet, Call, Storage, Event<T>}  = 40,
 	}
 );
