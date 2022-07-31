@@ -476,8 +476,8 @@ parameter_types! {
 	pub const BasicDeposit: Balance = 258 * DEPOSIT_PER_BYTE;
 	pub const FieldDeposit: Balance = 66 * DEPOSIT_PER_BYTE;
 	pub const SubAccountDeposit: Balance = 53 * DEPOSIT_PER_BYTE;
-	pub const MaxSubAccounts: u32 = 0;
-	pub const MaxAdditionalFields: u32 = 0;
+	pub const MaxSubAccounts: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
 	pub const MaxRegistrars: u32 = 20;
 }
 
@@ -491,8 +491,8 @@ impl pallet_identity::Config for Runtime {
 	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
-	type ForceOrigin = TechnicalCommitteeMajority;
-	type RegistrarOrigin = TechnicalCommitteeMajority;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
