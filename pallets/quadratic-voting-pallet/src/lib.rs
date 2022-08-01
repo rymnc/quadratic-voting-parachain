@@ -9,7 +9,7 @@ pub use pallet::*;
 mod mock;
 
 #[cfg(test)]
-mod tests;	
+mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -17,7 +17,9 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{Currency, EnsureOrigin, ReservableCurrency},
 	};
+	use frame_support::sp_runtime::traits::CheckedAdd;
 	use frame_system::pallet_prelude::*;
+	use scale_info::TypeInfo;
 
 	pub type VotingRoundId = u32;
 
@@ -26,7 +28,11 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_identity::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type BlocksPerWeek: Get<BlockNumberFor<Self>>;
+		type BlocksForVotingPhase: Get<BlockNumberFor<Self>>;
+		type OneBlock: Get<BlockNumberFor<Self>>;
+		type BlocksForPostVotingPhase: Get<BlockNumberFor<Self>>;
+		type BlocksForPreVotingPhase: Get<BlockNumberFor<Self>>;
+		type BlocksForProposalPhase: Get<BlockNumberFor<Self>>;
 		type Token: ReservableCurrency<Self::AccountId>;
 		type BondForVotingRound: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
 		type ManagerOrigin: EnsureOrigin<Self::Origin>;
@@ -45,8 +51,22 @@ pub mod pallet {
 		Finalized,
 	}
 
-	pub type VotingRoundMetadata<T> =
-		(AccountIdFor<T>, BlockNumberFor<T>, BlockNumberFor<T>, VotingRoundId, VotingPhases);
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct VotingPhaseData<BlockNumber> {
+		pub start_block:  BlockNumber,
+		pub end_block: BlockNumber,
+	}
+
+	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub struct VotingRoundMetadata<AccountId, BlockNumber> {
+		pub initializer: AccountId,
+		pub proposal_phase: VotingPhaseData<BlockNumber>,
+		pub previous_round_id: VotingRoundId,
+		pub pre_voting_phase: VotingPhaseData<BlockNumber>,
+		pub voting_phase: VotingPhaseData<BlockNumber>,
+		pub post_voting_phase: VotingPhaseData<BlockNumber>,
+		pub phase: VotingPhases,
+	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -59,7 +79,7 @@ pub mod pallet {
 		Blake2_128Concat,
 		VotingRoundId,
 		// initiator, start_block, end_block, previous_round_id
-		VotingRoundMetadata<T>,
+		VotingRoundMetadata<AccountIdFor<T>, BlockNumberFor<T>>,
 		OptionQuery,
 	>;
 
@@ -110,7 +130,31 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			let mut weight: Weight = 0;
+			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
+				Some(id) => id,
+				// this will happen only when the pallet is initialized for the first time
+				None => 0,
+			};
+			weight += 1;
+			if latest_voting_round_id == 0 {
+				return weight;
+			}
+
+			let past_voting_round_opt = VotingRounds::<T>::get(latest_voting_round_id);
+
+			if past_voting_round_opt.is_some() {
+				let _ = past_voting_round_opt.unwrap();
+			}
+
+			// check if phase is reaching next round
+			// TODO
+			weight
+		}
+
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -120,7 +164,7 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn start_voting_round(origin: OriginFor<T>) -> DispatchResult {
 			// check if the user is a member of the technical committee
-			T::ManagerOrigin::ensure_origin(origin.clone())?;
+			// T::ManagerOrigin::ensure_origin(origin.clone())?;
 			let who = ensure_signed(origin)?;
 
 			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
@@ -129,32 +173,50 @@ pub mod pallet {
 				None => 0,
 			};
 
+			sp_std::if_std! {
+				// This code is only being compiled and executed when the `std` feature is enabled.
+    			println!("{}", latest_voting_round_id);
+			}
+
 			if latest_voting_round_id > 0 {
 				// Check if the previous voting round has completed
-				let (_, _, _, _, phase) = match VotingRounds::<T>::get(latest_voting_round_id) {
+				let past_voting_round = match VotingRounds::<T>::get(latest_voting_round_id) {
 					Some(metadata) => metadata,
 					None => Err(Error::<T>::VotingRoundNotFound)?,
 				};
 
 				// check if phase is finalized
-				if phase != VotingPhases::Finalized {
+				if past_voting_round.phase != VotingPhases::Finalized {
 					Err(Error::<T>::ProposalPhaseCannotStart)?
 				}
 			}
 
 			// bond some tokens to the voting round
 			let bond = T::BondForVotingRound::get();
+
+			sp_std::if_std! {
+				// This code is only being compiled and executed when the `std` feature is enabled.
+    			println!("Bond: {:#?}", bond);
+				println!("Token balance: {:#?}", T::Token::free_balance(&who));
+			}
+
 			T::Token::reserve(&who, bond)?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			sp_std::if_std! {
+				// This code is only being compiled and executed when the `std` feature is enabled.
+    			println!("Current block: {:#?}", current_block);
+			}
 
 			// start the proposal phase
 			let next_voting_round_id =
 				latest_voting_round_id.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
 			let next_voting_round_metadata =
-				make_voting_round_metadata::<T>(who, current_block, latest_voting_round_id);
+				make_voting_round_metadata::<T>(who, current_block, latest_voting_round_id)?;
 
 			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata);
+			LatestVotingRound::<T>::put(next_voting_round_id);
 
 			Self::deposit_event(Event::ProposalPhaseStarted(next_voting_round_id));
 
@@ -167,13 +229,41 @@ pub mod pallet {
 		initiator: AccountIdFor<T>,
 		start_block: BlockNumberFor<T>,
 		previous_round_id: VotingRoundId,
-	) -> VotingRoundMetadata<T> {
-		(
-			initiator,
-			start_block,
-			T::BlocksPerWeek::get() + start_block,
+	) -> Result<VotingRoundMetadata<AccountIdFor<T>, BlockNumberFor<T>>, Error<T>> {
+		let proposal_start = start_block;
+		let proposal_end = start_block + T::BlocksForProposalPhase::get();
+
+
+		let pre_voting_start = proposal_end + T::OneBlock::get();
+		let pre_voting_end = pre_voting_start + T::BlocksForPreVotingPhase::get();
+
+		let voting_start = pre_voting_end + T::OneBlock::get();
+		let voting_end = voting_start + T::BlocksForVotingPhase::get();
+
+		let post_voting_start = voting_end + T::OneBlock::get();
+		let post_voting_end = post_voting_start + T::BlocksForPostVotingPhase::get();
+
+
+		return Ok(VotingRoundMetadata::<AccountIdFor<T>, BlockNumberFor<T>> {
+			initializer: initiator,
+			phase: VotingPhases::Proposal,
 			previous_round_id,
-			VotingPhases::Proposal,
-		)
+			proposal_phase: VotingPhaseData::<BlockNumberFor<T>> {
+				start_block: proposal_start,
+				end_block: proposal_end,
+			},
+			pre_voting_phase: VotingPhaseData::<BlockNumberFor<T>> {
+				start_block: pre_voting_start,
+				end_block: pre_voting_end,
+			},
+			voting_phase: VotingPhaseData::<BlockNumberFor<T>>  {
+				start_block: voting_start,
+				end_block: voting_end,
+			},
+			post_voting_phase: VotingPhaseData::<BlockNumberFor<T>> {
+				start_block: post_voting_start,
+				end_block: post_voting_end,
+			},
+		});
 	}
 }

@@ -59,15 +59,15 @@ impl system::Config for Test {
 }
 
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type Event = Event;
 	type DustRemoval = ();
+	type Event = Event;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
 }
 
 impl pallet_identity::Config for Test {
@@ -87,19 +87,33 @@ impl pallet_identity::Config for Test {
 
 impl quadratic_voting_pallet::Config for Test {
 	type Event = Event;
-  type Token = Balances;
-  type BlocksPerWeek = ConstU64<1>;
-  type BondForVotingRound = ConstU128<1>;
-  type ManagerOrigin = system::EnsureRoot<Self::AccountId>;
+	type Token = Balances;
+	type BlocksForProposalPhase = ConstU64<10>;
+	type BlocksForPreVotingPhase = ConstU64<10>;
+	type BlocksForPostVotingPhase = ConstU64<10>;
+	type OneBlock = ConstU64<1>;
+	type BlocksForVotingPhase = ConstU64<10>;
+	type BondForVotingRound = ConstU128<1000>;
+	type ManagerOrigin = system::EnsureRoot<Self::AccountId>;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1,  1 << 10 ), (2, 10), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	t.into()
 }
+
+// pub fn run_to_block(n: u64) {
+// 	while System::block_number() < n {
+// 		if System::block_number() > 1 {
+// 			System::on_finalize(System::block_number());
+// 		}
+// 		System::set_block_number(System::block_number() + 1);
+// 		System::on_initialize(System::block_number());
+// 	}
+// }
