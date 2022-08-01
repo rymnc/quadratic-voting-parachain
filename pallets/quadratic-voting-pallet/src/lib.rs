@@ -32,6 +32,7 @@ pub mod pallet {
 		type BlocksForPostVotingPhase: Get<BlockNumberFor<Self>>;
 		type BlocksForPreVotingPhase: Get<BlockNumberFor<Self>>;
 		type BlocksForProposalPhase: Get<BlockNumberFor<Self>>;
+		type BlocksForEnactmentPhase: Get<BlockNumberFor<Self>>;
 		type Token: ReservableCurrency<Self::AccountId>;
 		type BondForVotingRound: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
 		type ManagerOrigin: EnsureOrigin<Self::Origin>;
@@ -64,6 +65,8 @@ pub mod pallet {
 		pub pre_voting_phase: VotingPhaseData<BlockNumber>,
 		pub voting_phase: VotingPhaseData<BlockNumber>,
 		pub post_voting_phase: VotingPhaseData<BlockNumber>,
+		pub enactment_phase: VotingPhaseData<BlockNumber>,
+		pub finalized_block: BlockNumber,
 		pub phase: VotingPhases,
 	}
 
@@ -130,7 +133,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
 			let mut weight: Weight = 0;
 			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
 				Some(id) => id,
@@ -142,14 +145,43 @@ pub mod pallet {
 				return weight
 			}
 
-			let past_voting_round_opt = VotingRounds::<T>::get(latest_voting_round_id);
+			let past_voting_round = VotingRounds::<T>::get(latest_voting_round_id)
+				.expect("Past voting round must exist");
 
-			if past_voting_round_opt.is_some() {
-				let _ = past_voting_round_opt.unwrap();
-			}
-
-			// check if phase is reaching next round
-			// TODO
+			// state machine for voting rounds
+			match past_voting_round.phase {
+				VotingPhases::Proposal => {
+					if block_number == past_voting_round.proposal_phase.end_block {
+						// group proposals into buckets of k size + transition state
+						todo!();
+					}
+				},
+				VotingPhases::PreVoting => {
+					if block_number == past_voting_round.pre_voting_phase.end_block {
+						// transition state
+						todo!();
+					}
+				},
+				VotingPhases::Voting => {
+					if block_number == past_voting_round.voting_phase.end_block {
+						// tally votes + transition state
+						todo!();
+					}
+				},
+				VotingPhases::PostVoting => {
+					if block_number == past_voting_round.post_voting_phase.end_block {
+						// return bond and stake + transition state
+						todo!();
+					}
+				},
+				VotingPhases::Enactment => {
+					if block_number == past_voting_round.enactment_phase.end_block {
+						// transition state
+						todo!();
+					}
+				},
+				VotingPhases::Finalized => ()
+			};
 			weight
 		}
 	}
@@ -162,7 +194,7 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn start_voting_round(origin: OriginFor<T>) -> DispatchResult {
 			// check if the user is a member of the technical committee
-			// T::ManagerOrigin::ensure_origin(origin.clone())?;
+			T::ManagerOrigin::ensure_origin(origin.clone())?;
 			let who = ensure_signed(origin)?;
 
 			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
@@ -244,6 +276,11 @@ pub mod pallet {
 		let post_voting_start = voting_end + T::OneBlock::get();
 		let post_voting_end = post_voting_start + T::BlocksForPostVotingPhase::get();
 
+		let enactment_start = post_voting_end + T::OneBlock::get();
+		let enactment_end = enactment_start + T::BlocksForEnactmentPhase::get();
+
+		let finalized = enactment_end + T::OneBlock::get();
+
 		return Ok(VotingRoundMetadata::<AccountIdFor<T>, BlockNumberFor<T>> {
 			initializer: initiator,
 			phase: VotingPhases::Proposal,
@@ -264,6 +301,11 @@ pub mod pallet {
 				start_block: post_voting_start,
 				end_block: post_voting_end,
 			},
+			enactment_phase: VotingPhaseData::<BlockNumberFor<T>> {
+				start_block: enactment_start,
+				end_block: enactment_end,
+			},
+			finalized_block: finalized
 		})
 	}
 }

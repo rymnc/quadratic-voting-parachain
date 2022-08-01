@@ -1,6 +1,8 @@
+use frame_support::pallet_prelude::EnsureOrigin;
 use crate as quadratic_voting_pallet;
 use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64};
 use frame_system as system;
+use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -31,6 +33,8 @@ frame_support::construct_runtime!(
 	}
 );
 
+type AccountId = u64;
+
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -42,7 +46,7 @@ impl system::Config for Test {
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = Event;
@@ -93,8 +97,28 @@ impl quadratic_voting_pallet::Config for Test {
 	type BlocksForPostVotingPhase = ConstU64<10>;
 	type OneBlock = ConstU64<1>;
 	type BlocksForVotingPhase = ConstU64<10>;
+	type BlocksForEnactmentPhase = ConstU64<10>;
 	type BondForVotingRound = ConstU128<1000>;
-	type ManagerOrigin = system::EnsureRoot<Self::AccountId>;
+	type ManagerOrigin = EnsureAlice;
+}
+
+pub struct EnsureAlice;
+impl EnsureOrigin<Origin> for EnsureAlice {
+	type Success = AccountId;
+
+	fn try_origin(o: Origin) -> Result<Self::Success, Origin> {
+		Into::<Result<RawOrigin<AccountId>, Origin>>::into(o).and_then(|o| match o {
+			RawOrigin::Signed(alice) => Ok(alice),
+			r => Err(Origin::from(r)),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn successful_origin() -> Origin {
+		let zero_account_id = AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+			.expect("infinite length input; no invalid inputs for type; qed");
+		Origin::from(RawOrigin::Signed(zero_account_id))
+	}
 }
 
 // Build genesis storage according to the mock runtime.
