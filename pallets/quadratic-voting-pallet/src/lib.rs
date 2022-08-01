@@ -15,9 +15,9 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
+		sp_runtime::traits::CheckedAdd,
 		traits::{Currency, EnsureOrigin, ReservableCurrency},
 	};
-	use frame_support::sp_runtime::traits::CheckedAdd;
 	use frame_system::pallet_prelude::*;
 	use scale_info::TypeInfo;
 
@@ -53,7 +53,7 @@ pub mod pallet {
 
 	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct VotingPhaseData<BlockNumber> {
-		pub start_block:  BlockNumber,
+		pub start_block: BlockNumber,
 		pub end_block: BlockNumber,
 	}
 
@@ -140,7 +140,7 @@ pub mod pallet {
 			};
 			weight += 1;
 			if latest_voting_round_id == 0 {
-				return weight;
+				return weight
 			}
 
 			let past_voting_round_opt = VotingRounds::<T>::get(latest_voting_round_id);
@@ -153,7 +153,6 @@ pub mod pallet {
 			// TODO
 			weight
 		}
-
 	}
 
 	#[pallet::call]
@@ -175,7 +174,7 @@ pub mod pallet {
 
 			sp_std::if_std! {
 				// This code is only being compiled and executed when the `std` feature is enabled.
-    			println!("{}", latest_voting_round_id);
+				println!("{}", latest_voting_round_id);
 			}
 
 			if latest_voting_round_id > 0 {
@@ -196,7 +195,7 @@ pub mod pallet {
 
 			sp_std::if_std! {
 				// This code is only being compiled and executed when the `std` feature is enabled.
-    			println!("Bond: {:#?}", bond);
+				println!("Bond: {:#?}", bond);
 				println!("Token balance: {:#?}", T::Token::free_balance(&who));
 			}
 
@@ -206,7 +205,7 @@ pub mod pallet {
 
 			sp_std::if_std! {
 				// This code is only being compiled and executed when the `std` feature is enabled.
-    			println!("Current block: {:#?}", current_block);
+				println!("Current block: {:#?}", current_block);
 			}
 
 			// start the proposal phase
@@ -233,7 +232,6 @@ pub mod pallet {
 		let proposal_start = start_block;
 		let proposal_end = start_block + T::BlocksForProposalPhase::get();
 
-
 		let pre_voting_start = proposal_end + T::OneBlock::get();
 		let pre_voting_end = pre_voting_start + T::BlocksForPreVotingPhase::get();
 
@@ -242,7 +240,6 @@ pub mod pallet {
 
 		let post_voting_start = voting_end + T::OneBlock::get();
 		let post_voting_end = post_voting_start + T::BlocksForPostVotingPhase::get();
-
 
 		return Ok(VotingRoundMetadata::<AccountIdFor<T>, BlockNumberFor<T>> {
 			initializer: initiator,
@@ -256,7 +253,7 @@ pub mod pallet {
 				start_block: pre_voting_start,
 				end_block: pre_voting_end,
 			},
-			voting_phase: VotingPhaseData::<BlockNumberFor<T>>  {
+			voting_phase: VotingPhaseData::<BlockNumberFor<T>> {
 				start_block: voting_start,
 				end_block: voting_end,
 			},
@@ -264,6 +261,6 @@ pub mod pallet {
 				start_block: post_voting_start,
 				end_block: post_voting_end,
 			},
-		});
+		})
 	}
 }

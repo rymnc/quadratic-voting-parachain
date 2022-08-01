@@ -15,7 +15,9 @@ fn cannot_create_new_proposal_if_existing_proposal_not_finalized() {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		assert_eq!(QuadraticVotingPallet::latest_voting_round(), Some(1u32));
 		// run_to_block(10);
-		assert_noop!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)), Error::<Test>::ProposalPhaseCannotStart);
-
+		assert_noop!(
+			QuadraticVotingPallet::start_voting_round(Origin::signed(1)),
+			Error::<Test>::ProposalPhaseCannotStart
+		);
 	})
 }

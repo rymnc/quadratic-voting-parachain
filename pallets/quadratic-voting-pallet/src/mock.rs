@@ -1,5 +1,5 @@
 use crate as quadratic_voting_pallet;
-use frame_support::traits::{ConstU16, ConstU64, ConstU128, ConstU32};
+use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -13,7 +13,7 @@ type Balance = u128;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::parameter_types!{
+frame_support::parameter_types! {
 	pub const ReserveAmount: Balance = 10_000;
 }
 
@@ -26,7 +26,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		QuadraticVotingPallet: quadratic_voting_pallet::{Pallet, Call, Storage, Event<T>},
-    Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
+	Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
@@ -101,7 +101,7 @@ impl quadratic_voting_pallet::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1,  1 << 10 ), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 1 << 10), (2, 10), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
