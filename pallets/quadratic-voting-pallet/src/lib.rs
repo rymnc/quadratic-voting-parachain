@@ -15,7 +15,6 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::CheckedAdd,
 		traits::{Currency, EnsureOrigin, ReservableCurrency},
 	};
 	use frame_system::pallet_prelude::*;
@@ -214,8 +213,12 @@ pub mod pallet {
 			let next_voting_round_metadata =
 				make_voting_round_metadata::<T>(who, current_block, latest_voting_round_id)?;
 
-			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata);
+			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata.clone());
 			LatestVotingRound::<T>::put(next_voting_round_id);
+
+			sp_std::if_std! {
+				println!("{:#?}", next_voting_round_metadata);
+			}
 
 			Self::deposit_event(Event::ProposalPhaseStarted(next_voting_round_id));
 
