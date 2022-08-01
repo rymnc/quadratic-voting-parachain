@@ -23,6 +23,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 
 # Frame
 pallet-identity = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
+pallet-collective = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 
 [dev-dependencies]
 serde = { version = "1.0.132" }
@@ -40,6 +41,7 @@ std = [
 	"scale-info/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
+	"pallet-collective/std",
 	"pallet-identity/std",
 	"frame-system/std",
 ]

@@ -5,30 +5,66 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 
-
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{Currency, EnsureOrigin, ReservableCurrency},
+	};
 	use frame_system::pallet_prelude::*;
+
+	pub type VotingRoundId = u32;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_identity::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type BlocksPerWeek: Get<BlockNumberFor<Self>>;
+		type Token: ReservableCurrency<Self::AccountId>;
+		type BondForVotingRound: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
+		type ManagerOrigin: EnsureOrigin<Self::Origin>;
 	}
+
+	type BlockNumberFor<T> = <T as frame_system::Config>::BlockNumber;
+	type AccountIdFor<T> = <T as frame_system::Config>::AccountId;
+
+	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum VotingPhases {
+		Proposal,
+		PreVoting,
+		Voting,
+		PostVoting,
+		Enactment,
+		Finalized,
+	}
+
+	pub type VotingRoundMetadata<T> = (
+		AccountIdFor<T>,
+		BlockNumberFor<T>,
+		BlockNumberFor<T>,
+		Option<VotingRoundId>,
+		VotingPhases,
+	);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	// The pallet's runtime storage items.
-	// https://docs.substrate.io/v3/runtime/storage
 	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
+	pub type VotingRounds<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		VotingRoundId,
+		// initiator, start_block, end_block, previous_round_id
+		VotingRoundMetadata<T>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn latest_voting_round_id)]
+	pub type LatestVotingRound<T: Config> = StorageValue<_, VotingRoundId>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -36,41 +72,92 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		// Emits the voting round id
-		ProposalPhaseStarted(u32),
+		ProposalPhaseStarted(VotingRoundId),
 	}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		// voting round not found
+		VotingRoundNotFound,
 		// Proposal phase cannot be started because the previous voting round is still active
 		ProposalPhaseCannotStart,
 		// Invalid user tries to start the proposal phase
 		NoPermissionToStartProposalPhase,
+		// Storage Overflow
+		StorageOverflow,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
-	
+
 	impl<T: Config> Pallet<T> {
-		// The following function starts a new proposal round, provided the origin has an identity,
-		// and the previous voting round has completed
+		// The following function starts a new proposal round, provided the origin
+		// belongs to the technical committee,
+		// and the previous voting round has "finalized"
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn start_voting_round(origin: OriginFor<T>) -> DispatchResult {
+			// check if the user is a member of the technical committee
+			T::ManagerOrigin::ensure_origin(origin.clone())?;
 			let who = ensure_signed(origin)?;
 
-			// Check if the user has an identity
-			let id = pallet_identity::pallet::Pallet::<T>::identity(&who).ok_or("bruh")?;
+			// Check if the user has an identity - will implement later
+			// match pallet_identity::pallet::Pallet::<T>::identity(&who) {
+			// 	Some(_) => (),
+			// 	None => Err(pallet_identity::Error::<T>::NotFound)?,
+			// };
 
-			// print id
-			sp_std::if_std!{
-				println!("{:#?}", id);
+			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
+				Some(id) => id,
+				// this should never happen
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			// Check if the previous voting round has completed
+			let (_, _, _, _, phase) = match VotingRounds::<T>::get(latest_voting_round_id) {
+				Some(metadata) => metadata,
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			// check if phase is finalized
+			if phase != VotingPhases::Finalized {
+				Err(Error::<T>::ProposalPhaseCannotStart)?
 			}
 
+			// bond some tokens to the voting round
+			let bond = T::BondForVotingRound::get();
+			T::Token::reserve(&who, bond)?;
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			// start the proposal phase
+			let next_voting_round_id =
+				latest_voting_round_id.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
+			let next_voting_round_metadata =
+				make_voting_round_metadata::<T>(who, current_block, latest_voting_round_id);
+
+			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata);
+
+			Self::deposit_event(Event::ProposalPhaseStarted(next_voting_round_id));
 
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
+	}
+
+	pub fn make_voting_round_metadata<T: Config>(
+		initiator: AccountIdFor<T>,
+		start_block: BlockNumberFor<T>,
+		previous_round_id: VotingRoundId,
+	) -> VotingRoundMetadata<T> {
+		(
+			initiator,
+			start_block,
+			T::BlocksPerWeek::get() + start_block,
+			Some(previous_round_id),
+			VotingPhases::Proposal,
+		)
 	}
 }

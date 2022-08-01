@@ -27,9 +27,7 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{
-		Everything, EitherOfDiverse
-	},
+	traits::Everything,
 	weights::{
 		constants::WEIGHT_PER_SECOND, ConstantMultiplier, DispatchClass, Weight,
 		WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
@@ -41,12 +39,7 @@ use frame_system::{
 	EnsureRoot,
 };
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{
-	MultiAddress, Perbill, Permill,
-	traits::{
-		IdentityLookup
-	}
-};
+pub use sp_runtime::{traits::IdentityLookup, MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -465,9 +458,18 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const BlocksPerWeek: BlockNumber = 7 * 24 * 60 * MINUTES;
+	pub const BondForVotingRound: Balance = 200_000_000;
+}
+
 /// Configure the pallet in pallets/quadratic-voting-pallet.
 impl quadratic_voting_pallet::Config for Runtime {
 	type Event = Event;
+	type Token = Balances;
+	type BlocksPerWeek = BlocksPerWeek;
+	type BondForVotingRound = BondForVotingRound;
+	type ManagerOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
 }
 
 parameter_types! {
@@ -504,20 +506,15 @@ parameter_types! {
 
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
-    type Event = Event;
-    type MotionDuration = TechnicalMotionDuration;
-    type MaxProposals = TechnicalMaxProposals;
-    type MaxMembers = TechnicalMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type Origin = Origin;
+	type Proposal = Call;
+	type Event = Event;
+	type MotionDuration = TechnicalMotionDuration;
+	type MaxProposals = TechnicalMaxProposals;
+	type MaxMembers = TechnicalMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
-
-type TechnicalCommitteeMajority = EitherOfDiverse<
-    frame_system::EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<AccountId, TechnicalCollective, 1, 2>,
->;
 
 impl pallet_sudo::Config for Runtime {
 	type Event = Event;
@@ -558,7 +555,7 @@ construct_runtime!(
 
 		// Identity
 		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 34,
-		
+
 		// Technical Committee
 		TechnicalCommittee: pallet_collective::<Instance2> = 35,
 

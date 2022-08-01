@@ -191,9 +191,7 @@ fn testnet_genesis(
 		balances: parachain_template_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		sudo: parachain_template_runtime::SudoConfig {
-			key: Some(endowed_accounts[0].clone()),
-		},
+		sudo: parachain_template_runtime::SudoConfig { key: Some(endowed_accounts[0].clone()) },
 		parachain_info: parachain_template_runtime::ParachainInfoConfig { parachain_id: id },
 		collator_selection: parachain_template_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
@@ -220,6 +218,6 @@ fn testnet_genesis(
 		polkadot_xcm: parachain_template_runtime::PolkadotXcmConfig {
 			safe_xcm_version: Some(SAFE_XCM_VERSION),
 		},
-		technical_committee: Default::default()
+		technical_committee: Default::default(),
 	}
 }
