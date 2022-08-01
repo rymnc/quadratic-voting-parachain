@@ -469,7 +469,7 @@ impl quadratic_voting_pallet::Config for Runtime {
 	type Token = Balances;
 	type BlocksPerWeek = BlocksPerWeek;
 	type BondForVotingRound = BondForVotingRound;
-	type ManagerOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
+	type ManagerOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {

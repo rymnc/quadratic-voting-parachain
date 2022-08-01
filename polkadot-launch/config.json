@@ -17,16 +17,68 @@
 	},
 	"parachains": [
 		{
-			"bin": "../target/release/polkadot-parachain",
-			"id": "200",
+			"bin": "../target/release/parachain-template-node",
+			"id": "1000",
+			"balance": "1000000000000000000000",
+			"nodes": [
+				{
+					"wsPort": 9946,
+					"name": "alice",
+					"port": 31200,
+					"flags": [
+						"--collator",
+						"--force-authoring",
+						"--",
+						"--execution=wasm"
+					]
+				}
+			]
+		},
+		{
+			"bin": "../target/release/parachain-template-node",
+			"id": "1000",
+			"balance": "1000000000000000000000",
+			"nodes": [
+				{
+					"wsPort": 9947,
+					"name": "bob",
+					"port": 30335,
+					"flags": [
+						"--collator",
+						"--force-authoring",
+						"--",
+						"--execution=wasm"
+					]
+				}
+			]
+		},
+		{
+			"bin": "../target/release/parachain-template-node",
+			"id": "1000",
 			"balance": "1000000000000000000000",
 			"nodes": [
 				{
 					"wsPort": 9988,
 					"name": "alice",
-					"port": 31200,
+					"port": 30336,
 					"flags": [
 						"--force-authoring",
+						"--",
+						"--execution=wasm"
+					]
+				}
+			]
+		},
+		{
+			"bin": "../target/release/parachain-template-node",
+			"id": "1000",
+			"balance": "1000000000000000000000",
+			"nodes": [
+				{
+					"wsPort": 9948,
+					"name": "charlie",
+					"port": 30337,
+					"flags": [
 						"--",
 						"--execution=wasm"
 					]

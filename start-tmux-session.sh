@@ -1,4 +1,5 @@
 tmux new-session \; \
+  send-keys '../polkadot/target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > ../polkadot/rococo-local-cfde.json' C-m \; \
   send-keys '../polkadot/target/release/polkadot --chain ../polkadot/rococo-local-cfde.json --alice --tmp' C-m \; \
   split-window -v \; \
   send-keys '../polkadot/target/release/polkadot --chain ../polkadot/rococo-local-cfde.json --bob --tmp --port 30334' C-m \; \

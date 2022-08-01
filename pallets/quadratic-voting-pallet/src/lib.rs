@@ -5,6 +5,12 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;	
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
@@ -39,13 +45,8 @@ pub mod pallet {
 		Finalized,
 	}
 
-	pub type VotingRoundMetadata<T> = (
-		AccountIdFor<T>,
-		BlockNumberFor<T>,
-		BlockNumberFor<T>,
-		Option<VotingRoundId>,
-		VotingPhases,
-	);
+	pub type VotingRoundMetadata<T> =
+		(AccountIdFor<T>, BlockNumberFor<T>, BlockNumberFor<T>, VotingRoundId, VotingPhases);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -53,7 +54,7 @@ pub mod pallet {
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
-	pub type VotingRounds<T: Config> = StorageMap<
+	pub(super) type VotingRounds<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		VotingRoundId,
@@ -63,8 +64,8 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn latest_voting_round_id)]
-	pub type LatestVotingRound<T: Config> = StorageValue<_, VotingRoundId>;
+	#[pallet::getter(fn latest_voting_round)]
+	pub(super) type LatestVotingRound<T: Config> = StorageValue<_, VotingRoundId>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -88,11 +89,30 @@ pub mod pallet {
 		StorageOverflow,
 	}
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig {
+		pub voting_round_id: VotingRoundId,
+	}
+
+	#[cfg(feature = "std")]
+	impl Default for GenesisConfig {
+		fn default() -> Self {
+			Self { voting_round_id: 0 }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+		fn build(&self) {
+			let voting_round_id = &self.voting_round_id;
+			<LatestVotingRound<T>>::put(*voting_round_id);
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
 	#[pallet::call]
-
 	impl<T: Config> Pallet<T> {
 		// The following function starts a new proposal round, provided the origin
 		// belongs to the technical committee,
@@ -103,27 +123,23 @@ pub mod pallet {
 			T::ManagerOrigin::ensure_origin(origin.clone())?;
 			let who = ensure_signed(origin)?;
 
-			// Check if the user has an identity - will implement later
-			// match pallet_identity::pallet::Pallet::<T>::identity(&who) {
-			// 	Some(_) => (),
-			// 	None => Err(pallet_identity::Error::<T>::NotFound)?,
-			// };
-
 			let latest_voting_round_id = match LatestVotingRound::<T>::get() {
 				Some(id) => id,
-				// this should never happen
-				None => Err(Error::<T>::VotingRoundNotFound)?,
+				// this will happen only when the pallet is initialized for the first time
+				None => 0,
 			};
 
-			// Check if the previous voting round has completed
-			let (_, _, _, _, phase) = match VotingRounds::<T>::get(latest_voting_round_id) {
-				Some(metadata) => metadata,
-				None => Err(Error::<T>::VotingRoundNotFound)?,
-			};
+			if latest_voting_round_id > 0 {
+				// Check if the previous voting round has completed
+				let (_, _, _, _, phase) = match VotingRounds::<T>::get(latest_voting_round_id) {
+					Some(metadata) => metadata,
+					None => Err(Error::<T>::VotingRoundNotFound)?,
+				};
 
-			// check if phase is finalized
-			if phase != VotingPhases::Finalized {
-				Err(Error::<T>::ProposalPhaseCannotStart)?
+				// check if phase is finalized
+				if phase != VotingPhases::Finalized {
+					Err(Error::<T>::ProposalPhaseCannotStart)?
+				}
 			}
 
 			// bond some tokens to the voting round
@@ -156,7 +172,7 @@ pub mod pallet {
 			initiator,
 			start_block,
 			T::BlocksPerWeek::get() + start_block,
-			Some(previous_round_id),
+			previous_round_id,
 			VotingPhases::Proposal,
 		)
 	}

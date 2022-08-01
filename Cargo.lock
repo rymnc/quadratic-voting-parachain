@@ -7444,6 +7444,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "pallet-collective",
  "pallet-identity",
  "parity-scale-codec",
