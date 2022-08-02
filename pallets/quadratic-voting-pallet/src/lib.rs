@@ -11,6 +11,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
@@ -22,7 +23,9 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use rand::{seq::SliceRandom, SeedableRng}; // 0.6.5
 	use rand_chacha::ChaChaRng;
-	use scale_info::TypeInfo; // 0.1.1
+	use scale_info::TypeInfo;
+	use sp_runtime::traits::IntegerSquareRoot; // 0.1.1
+
 
 	// Ideally, these would be in a primitives directory
 	pub type VotingRoundId = u32;
@@ -151,6 +154,19 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn voters_voted_on_proposal)]
+	pub(super) type VotersVotedOnProposal<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, VotingRoundId>,
+			NMapKey<Blake2_128Concat, ProposalCount>,
+			NMapKey<Blake2_128Concat, T::AccountId>,
+		),
+		(),
+		OptionQuery,
+	>;
+
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
@@ -194,6 +210,10 @@ pub mod pallet {
 		NoTokensBonded,
 		// user tried to vote more than their bond
 		CannotVoteMoreThanBond,
+		// sqrt arithmetic failed
+		CouldNotComputeSqrt,
+		// voter has voted on the given proposal
+		VoterHasVotedForThisProposal,
 	}
 
 	#[pallet::genesis_config]
@@ -492,6 +512,12 @@ pub mod pallet {
 						None => Err(Error::<T>::ProposalNotFound)?,
 					};
 
+					// check if voter has voted for this proposal already
+					match VotersVotedOnProposal::<T>::get((voting_round_id, proposal_id, &who)) {
+						Some(_) => Err(Error::<T>::VoterHasVotedForThisProposal)?,
+						None => {},
+					}
+
 					let attached_bucket_id = proposal.bucket_id.expect("qed");
 
 					let mut bonded_tokens = match VotersForBucket::<T>::get((voting_round_id, attached_bucket_id, &who)) {
@@ -505,6 +531,7 @@ pub mod pallet {
 					}
 
 					// we accept the vote now
+					let vote = get_vote_from_bond::<T>(vote)?;
 					let _ = match direction {
 						VoteDirection::Aye => {
 							proposal.ayes.try_push(vote).map_err(|_| Error::<T>::StorageOverflow)?;
@@ -522,6 +549,7 @@ pub mod pallet {
 						nays: proposal.nays.clone(),
 						bucket_id: proposal.bucket_id,
 					};
+					VotersVotedOnProposal::<T>::set((voting_round_id, proposal_id, &who), Some(()));
 					ProposalsForVotingRound::<T>::set(voting_round_id, Some(proposals));
 					VotersForBucket::<T>::set((voting_round_id, attached_bucket_id, &who), Some(bonded_tokens));
 				},
@@ -584,5 +612,9 @@ pub mod pallet {
 			},
 			finalized_block: finalized,
 		})
+	}
+
+	pub fn get_vote_from_bond<T: Config>(bond: BalanceOf<T>)-> Result<BalanceOf<T>, Error<T>>{
+		bond.integer_sqrt_checked().ok_or(Error::<T>::CouldNotComputeSqrt)
 	}
 }
