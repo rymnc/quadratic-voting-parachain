@@ -168,6 +168,8 @@ pub mod pallet {
 		StorageOverflow,
 		// Identity not found
 		IdentityNotFound,
+		// Invalid bucket id
+		InvalidBucketId,
 		// only allowed in proposal phase
 		CanCallOnlyDuringProposalPhase,
 		// only allowed in prevoting phase
@@ -393,7 +395,11 @@ pub mod pallet {
 		pub fn register_to_vote(origin: OriginFor<T>, bucket_id: BucketId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// ensure those who create proposals are backed by identities
+			if bucket_id > T::BucketSize::get() {
+				Err(Error::<T>::InvalidBucketId)?
+			}
+
+			// ensure those who register are backed by identities
 			match pallet_identity::pallet::Pallet::<T>::identity(&who) {
 				Some(_) => {},
 				None => Err(Error::<T>::IdentityNotFound)?,
