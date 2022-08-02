@@ -56,6 +56,8 @@ pub mod pallet {
 
 	type BlockNumberFor<T> = <T as frame_system::Config>::BlockNumber;
 	type AccountIdFor<T> = <T as frame_system::Config>::AccountId;
+	type BalanceOf<T> =
+	<<T as Config>::Token as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum VotingPhases {
@@ -138,7 +140,7 @@ pub mod pallet {
 			NMapKey<Blake2_128Concat, BucketId>,
 			NMapKey<Blake2_128Concat, T::AccountId>,
 		),
-		(),
+		BalanceOf<T>,
 		OptionQuery,
 	>;
 
@@ -406,7 +408,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn register_to_vote(origin: OriginFor<T>, bucket_id: BucketId) -> DispatchResult {
+		pub fn register_to_vote(origin: OriginFor<T>, bucket_id: BucketId, votes: BalanceOf<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			if bucket_id > T::BucketSize::get() {
@@ -435,7 +437,7 @@ pub mod pallet {
 						Some(proposals) => proposals,
 						None => Err(Error::<T>::NoProposals)?,
 					};
-					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), ());
+					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), votes);
 				},
 				VotingPhases::Proposal |
 				VotingPhases::Voting |
@@ -444,7 +446,7 @@ pub mod pallet {
 				VotingPhases::Finalized => Err(Error::<T>::CanCallOnlyDuringPreVotingPhase)?,
 			};
 
-			T::Token::reserve(&who, T::BondForVoting::get())?;
+			T::Token::reserve(&who, votes)?;
 
 			Ok(())
 		}

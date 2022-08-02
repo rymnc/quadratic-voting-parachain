@@ -161,7 +161,7 @@ fn should_not_allow_voter_registration_by_anon() {
 		run_to_block(10);
 
 		assert_noop!(
-			QuadraticVotingPallet::register_to_vote(Origin::signed(3), 0),
+			QuadraticVotingPallet::register_to_vote(Origin::signed(3), 0, 1),
 			Error::<Test>::IdentityNotFound,
 		);
 	})
@@ -183,7 +183,7 @@ fn should_not_allow_invalid_bucket_id() {
 		run_to_block(10);
 
 		assert_noop!(
-			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 6),
+			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 6, 1),
 			Error::<Test>::InvalidBucketId,
 		);
 	})
@@ -205,7 +205,7 @@ fn should_not_allow_voter_registration_during_other_phases() {
 		run_to_block(9);
 
 		assert_noop!(
-			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3),
+			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3, 1),
 			Error::<Test>::CanCallOnlyDuringPreVotingPhase,
 		);
 	})
@@ -226,11 +226,12 @@ fn should_allow_voter_registration() {
 
 		run_to_block(10);
 
-		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3),);
-		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2),);
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3, 1));
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2, 1));
 
-		assert_eq!(VotersForBucket::<Test>::get((1u32, 3, 1)), Some(()));
+		assert_eq!(VotersForBucket::<Test>::get((1u32, 3, 1)), Some(1));
 
-		assert_eq!(VotersForBucket::<Test>::get((1u32, 2, 2)), Some(()));
+		assert_eq!(VotersForBucket::<Test>::get((1u32, 2, 2)), Some(1));
 	})
 }
+
