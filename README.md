@@ -92,3 +92,15 @@ This would require extending the identity pallet to have reputation.
 4. Votes are submitted simply as an aye or nay. This could lead to censorship since collators are able to look at the voters decision.
 A commit-reveal method could be used, however that would require an additional overhead on the client side, which needs to be connected to the internet throughout the voting and post-voting phases, to ensure that the vote is not invalidated.
 There is an old pallet for [zk](https://github.com/Polkadex-Substrate/megaclite) which could be used for zk-based voting, but this needs more research in the context of quadratic voting.
+
+5. Currently, the voters themselves tally the votes and submit disputes if the node submits an invalid tally. To follow Cardano's Governance system, ideally we should have a per-bucket "committee",
+which is selected by an inequality -
+
+$$ hash(vki, signsk′i (seed)) ≤ sti · T $$
+
+The variables are not relevant in this case, but just provided for context.
+
+The per-bucket committee can be selected after voters register to be a part of the bucket. If the voter satisfies an inequality provided by BABE's randomness (or another source), they can apply to be a committee member for the given bucket with a bond, which is returned to them upon vote execution.
+Committee members are tasked with tallying the votes, which reduces overhead on regular voters if compute-heavy cryptographic primitives (like ZK) are used to wrap votes.
+
+This committee is then open to disputes and challenges by regular voters.
