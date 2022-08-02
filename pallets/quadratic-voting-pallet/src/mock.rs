@@ -1,6 +1,7 @@
 use frame_support::pallet_prelude::EnsureOrigin;
+use frame_support::parameter_types;
 use crate as quadratic_voting_pallet;
-use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64};
+use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnInitialize, OnFinalize};
 use frame_system as system;
 use frame_system::RawOrigin;
 use sp_core::H256;
@@ -89,17 +90,24 @@ impl pallet_identity::Config for Test {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const BlocksForPreVotingPhase: u64 = 10;
+}
+
 impl quadratic_voting_pallet::Config for Test {
 	type Event = Event;
 	type Token = Balances;
 	type BlocksForProposalPhase = ConstU64<10>;
-	type BlocksForPreVotingPhase = ConstU64<10>;
+	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
 	type BlocksForPostVotingPhase = ConstU64<10>;
 	type OneBlock = ConstU64<1>;
 	type BlocksForVotingPhase = ConstU64<10>;
 	type BlocksForEnactmentPhase = ConstU64<10>;
 	type BondForVotingRound = ConstU128<1000>;
+	type BondForProposal = ConstU128<20>;
+	type MaxProposals = ConstU32<10>;
 	type ManagerOrigin = EnsureAlice;
+	type MaxVotes = ConstU32<1000>;
 }
 
 pub struct EnsureAlice;
@@ -132,12 +140,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
-// pub fn run_to_block(n: u64) {
-// 	while System::block_number() < n {
-// 		if System::block_number() > 1 {
-// 			System::on_finalize(System::block_number());
-// 		}
-// 		System::set_block_number(System::block_number() + 1);
-// 		System::on_initialize(System::block_number());
-// 	}
-// }
+pub fn run_to_block(n: u64) {
+	while System::block_number() < n {
+		if System::block_number() > 1 {
+			quadratic_voting_pallet::pallet::Pallet::<Test>::on_finalize(System::block_number());
+			System::on_finalize(System::block_number());
+		}
+		System::set_block_number(System::block_number() + 1);
+		System::on_initialize(System::block_number());
+		quadratic_voting_pallet::pallet::Pallet::<Test>::on_initialize(System::block_number());
+	}
+}

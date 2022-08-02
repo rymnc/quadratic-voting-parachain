@@ -4,15 +4,17 @@ A [Cumulus](https://github.com/paritytech/cumulus/)-based Substrate node, which 
 
 ## Protocol Design
 
-The quadratic voting protocol takes hints from Cardano's Governance Model, and is designed to be compatible with the [Spec](https://mdpi-res.com/d_attachment/information/information-13-00305/article_deploy/information-13-00305-v3.pdf?version=1655859835) defined. 
+The quadratic voting protocol takes hints from Cardano's Governance Model, and is designed to be compatible with the [Spec](https://mdpi-res.com/d_attachment/information/information-13-00305/article_deploy/information-13-00305-v3.pdf?version=1655859835) defined.
 
 All stages of voting are restricted to the users that have an identity - and have not been slashed by the registrar.
 
 ### Stages of Voting
 
+0. A member of the technical committee kicks off the voting round. In the future, this can be swapped out for actual governance OR have it automated when the previous voting round is finalized.
+
 #### Proposal Phase (~1 week)
 
-1. A proposer creates a proposal and submits it to the chain, with a bond which will be returned to them upon vote execution.
+1. A proposer creates a proposal and submits it to the chain, with a bond which will be returned to them upon vote execution. Each identity can only create one proposal per voting round.
 
 #### Pre Voting Phase (~1 week)
 
