@@ -327,6 +327,7 @@ pub mod pallet {
 						for i in 0..proposals.len() {
 							let mut ayes: BalanceOf<T> = 0u32.into();
 
+							// this should be replaced with an .iter().sum() :/
 							for aye in &proposals[i].ayes {
 								ayes += *aye;
 							}

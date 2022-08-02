@@ -107,3 +107,6 @@ which is selected by an inequality -
 6. There are no integrity checks for the constants, they should be implemented in the future.
 
 7. There are asserts in tests which don't need to exist, they should be removed in the future.
+
+8. Currently, we return the voting round creation bond and the proposal creation bond according to the value passed into the config. However, during a runtime upgrade, if
+the config for the bonds are changed, then that would lead to erroneous values being returned to the party upon vote execution. A simple solve for this would be to store the bond amount.
