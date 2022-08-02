@@ -62,3 +62,26 @@ All stages of voting are restricted to the users that have an identity - and hav
 ### Self Made Pallets
 
 1. `pallet-quadratic-voting`
+
+
+## Future work and current constraints
+
+1. We are using the [Collective Flip Pallet](https://paritytech.github.io/substrate/master/pallet_randomness_collective_flip/index.html), which is not recommended for production since it is unsafe.
+Significant headway has been made in using the relay chain's randomness (provided by BABE) [here](https://github.com/paritytech/cumulus/issues/463).
+However, it is important to note that BABE's randomness is known by block producers [2 epochs in advance](https://github.com/paritytech/substrate/blob/master/frame/babe/src/randomness.rs#L83-L120)
+For a truly censorship-resistant source of randomness, a public protocol like [drand](https://drand.love/) can be used, in tandem with OCW. Upon further investigation, to use drand with substrate, a network module must be created, similar to
+[bitswap](https://github.com/paritytech/substrate/blob/84cc128a6edc1c87b68954e6d64407ee36be45c1/client/network/src/bitswap.rs#L1). Bitswap is primarily intended for use in OCW to
+store/get block data. A generic libp2p node would allow a much more connected web of networks, with substrate nodes deciding which p2p networks to communicate with. OCW's natively
+allow for bridging data from these p2p networks to the chain state via transactions.
+
+Therefore, to have an additional source of randomness (on a common-good parachain?), the following steps should be completed -
+- Create the drand libp2p module in substrate's client code
+- Expose it to use with OCW
+- Have an OCW fetch the latest randomness, verify it, and post a transaction to the chain
+- Use the randomness from the runtime
+
+This randomness could then be used to group proposals into buckets, which would prevent the block weight from being completely used due to the relation of proposals to the number of voters.
+
+2. Creation of voting rounds is restricted to a member of the technical commitee. This should be open to anyone with an identity with a "reputation" greater than a set threshold
+This would require extending the identity pallet to have reputation.
+
