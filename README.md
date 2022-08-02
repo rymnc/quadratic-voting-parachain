@@ -42,6 +42,9 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 ## Technical Details
 
+The cumulus parachain template was used to allow this chain to use BABE's randomness. Eventually, we should be able to send proposal finalization's to other chains
+via XCM. This could enable this parachain to be used as a "Hub" for multiple parachains trying to achieve consensus on proposals that they are mutually affected by.
+
 ### Pre-Existing Pallets used
 
 1. `cumulus-pallet-parachain-system` - The main pallet for the parachain.
@@ -85,3 +88,4 @@ This randomness could then be used to group proposals into buckets, which would 
 2. Creation of voting rounds is restricted to a member of the technical commitee. This should be open to anyone with an identity with a "reputation" greater than a set threshold
 This would require extending the identity pallet to have reputation.
 
+3. Dispatchable proposals are currently not implemented. When a proposal is finalized, we just deposit an Event. In the future, we should implement the dispatchable similar to how it is done in the [collective pallet](https://github.com/paritytech/substrate/blob/master/frame/collective/src/lib.rs#L184-L187).
