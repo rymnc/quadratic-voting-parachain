@@ -24,14 +24,12 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 #### Voting Phase (~1 week)
 
-1. Voters can begin to assign their votes to the proposals in the buckets they registered for.
+1. Voters can begin to assign their votes to the proposals in the buckets they registered for
 
 
 #### Post Voting Phase (~3 days)
 
-1. The results are tallied by the voters for the buckets they registered for.
-2. A challenge period exists, during which any voter can challenge the results.
-3. The results are tallied again, and if there is a discrepency, the bucket is cancelled, and all voters are refunded, except for those who equivocated.
+1. The results are tallied
 
 #### Enactment Phase (~1 week)
 
@@ -41,7 +39,7 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 ## Technical Details
 
-The cumulus parachain template was used to allow this chain to use BABE's randomness. Eventually, we should be able to send proposal finalization's to other chains
+The cumulus parachain template was used to allow this chain to use BABE's randomness. Eventually, we should be able to send proposal finalizations to other chains
 via XCM. This could enable this parachain to be used as a "Hub" for multiple parachains trying to achieve consensus on proposals that they are mutually affected by.
 
 ### Pre-Existing Pallets used
@@ -60,6 +58,8 @@ via XCM. This could enable this parachain to be used as a "Hub" for multiple par
 12. `cumulus-pallet-dmp-queue`
 13. `pallet-identity`
 14. `pallet-collective`
+15. `pallet-balances`
+16. `pallet-randomness-collective-flip`
 
 ### Self Made Pallets
 
