@@ -10,6 +10,19 @@ fn can_create_the_first_voting_round() {
 }
 
 #[test]
+fn should_not_transition_to_pre_voting_prematurely() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+		assert_eq!(QuadraticVotingPallet::latest_voting_round(), Some(1u32));
+		run_to_block(BlocksForPreVotingPhase::get() - 1);
+		assert_eq!(
+			VotingRounds::<Test>::get(1u32).unwrap().phase,
+			VotingPhases::Proposal
+		);
+	})
+}
+
+#[test]
 fn can_transition_to_pre_voting() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
