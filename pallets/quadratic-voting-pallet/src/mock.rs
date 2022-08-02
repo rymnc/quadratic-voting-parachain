@@ -92,6 +92,7 @@ impl pallet_identity::Config for Test {
 
 parameter_types! {
 	pub const BlocksForPreVotingPhase: u64 = 10;
+	pub const MaxProposals: u32 = 10;
 }
 
 impl quadratic_voting_pallet::Config for Test {
@@ -105,7 +106,7 @@ impl quadratic_voting_pallet::Config for Test {
 	type BlocksForEnactmentPhase = ConstU64<10>;
 	type BondForVotingRound = ConstU128<1000>;
 	type BondForProposal = ConstU128<20>;
-	type MaxProposals = ConstU32<10>;
+	type MaxProposals = MaxProposals;
 	type ManagerOrigin = EnsureAlice;
 	type MaxVotes = ConstU32<1000>;
 }
@@ -133,7 +134,7 @@ impl EnsureOrigin<Origin> for EnsureAlice {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 1 << 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 1 << 100), (2, 10), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

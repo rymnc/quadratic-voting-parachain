@@ -141,6 +141,8 @@ pub mod pallet {
 		NoPermissionToStartProposalPhase,
 		// Storage Overflow
 		StorageOverflow,
+		// Identity not found
+		IdentityNotFound,
 		// only allowed in proposal phase
 		CanCallOnlyDuringProposalPhase,
 	}
@@ -168,9 +170,6 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-			sp_std::if_std! {
-				println!("Block number in on_init: {}", block_number);
-			}
 			let mut weight: Weight = 0;
 			let voting_round_id = match LatestVotingRound::<T>::get() {
 				Some(id) => id,
@@ -242,11 +241,6 @@ pub mod pallet {
 				None => 0,
 			};
 
-			sp_std::if_std! {
-				// This code is only being compiled and executed when the `std` feature is enabled.
-				println!("{}", latest_voting_round_id);
-			}
-
 			if latest_voting_round_id > 0 {
 				// Check if the previous voting round has completed
 				let past_voting_round = match VotingRounds::<T>::get(latest_voting_round_id) {
@@ -263,21 +257,9 @@ pub mod pallet {
 			// bond some tokens to the voting round
 			let bond = T::BondForVotingRound::get();
 
-			sp_std::if_std! {
-				// This code is only being compiled and executed when the `std` feature is enabled.
-				println!("Bond: {:#?}", bond);
-				println!("Token balance: {:#?}", T::Token::free_balance(&who));
-			}
-
 			T::Token::reserve(&who, bond)?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
-
-			sp_std::if_std! {
-				// This code is only being compiled and executed when the `std` feature is enabled.
-				println!("Current block: {:#?}", current_block);
-			}
-
 			// start the proposal phase
 			let next_voting_round_id =
 				latest_voting_round_id.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
@@ -286,10 +268,6 @@ pub mod pallet {
 
 			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata.clone());
 			LatestVotingRound::<T>::put(next_voting_round_id);
-
-			sp_std::if_std! {
-				println!("{:#?}", next_voting_round_metadata);
-			}
 
 			Self::deposit_event(Event::ProposalPhaseStarted(next_voting_round_id));
 
@@ -303,12 +281,8 @@ pub mod pallet {
 
 			// ensure those who create proposals are backed by identities
 			match pallet_identity::pallet::Pallet::<T>::identity(&who) {
-				Some(id) => {
-					sp_std::if_std! {
-							println!("{:#?}", id);
-						}
-				}
-				None => Err(pallet_identity::Error::<T>::NotFound)?,
+				Some(id) => {},
+				None => Err(Error::<T>::IdentityNotFound)?,
 			};
 
 			let voting_round_id = match LatestVotingRound::<T>::get() {
@@ -323,36 +297,30 @@ pub mod pallet {
 
 			match voting_round.phase {
 				VotingPhases::Proposal => {
-					// bond according to proposal cost
-					T::Token::reserve(&who, T::BondForProposal::get())?;
-
-					// check if data exists
-					let proposals = match ProposalsForVotingRound::<T>::get(voting_round_id) {
-						Some(proposals) => proposals,
-						None => Err(Error::<T>::VotingRoundNotFound)?,
+					// check if proposals exist
+					let proposals = ProposalsForVotingRound::<T>::get(voting_round_id);
+					let new_proposal = Proposal::<T::AccountId, T::MaxVotes> {
+						initializer: who.clone(),
+						ayes: bounded_vec![],
+						nays: bounded_vec![],
 					};
 
-					if proposals.is_empty() {
-						// let mut new_proposal_list: BoundedVec<Proposal::<T>, T::MaxProposals> = bounded_vec![];
-						// let new_proposal = Proposal::<T> {
-						// 	initializer: who,
-						// 	ayes: bounded_vec![],
-						// 	nayes: bounded_vec![],
-						// };
-						// new_proposal_list.push(new_proposal);
-						// ProposalsForVotingRound::<T>::set(voting_round_id, Some(new_proposal_list));
+					if !proposals.is_some() {
+						let mut new_proposal_list: BoundedVec<Proposal::<T::AccountId, T::MaxVotes>, T::MaxProposals> = bounded_vec![];
+						// wouldn't actually error out
+						new_proposal_list.try_insert(0 as usize, new_proposal).map_err(|_| Error::<T>::StorageOverflow)?;
+						ProposalsForVotingRound::<T>::set(voting_round_id, Some(new_proposal_list));
 					} else {
-						// ProposalsForVotingRound::<T>::append(voting_round_id, bounded_vec![
-						// 	Proposal(
-						// 	(&who, bounded_vec![], bounded_vec![])
-						// )
-						// ]);
+						ProposalsForVotingRound::<T>::try_append(voting_round_id,new_proposal).map_err(|_| Error::<T>::StorageOverflow)?;
 					}
 				}
 				VotingPhases::PreVoting | VotingPhases::Voting | VotingPhases::PostVoting | VotingPhases::Enactment | VotingPhases::Finalized => {
 					Err(Error::<T>::CanCallOnlyDuringProposalPhase)?
 				}
 			};
+
+			// bond according to proposal cost
+			T::Token::reserve(&who, T::BondForProposal::get())?;
 
 			Ok(())
 		}
