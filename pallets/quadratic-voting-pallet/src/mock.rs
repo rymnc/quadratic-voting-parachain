@@ -1,8 +1,9 @@
 use frame_support::pallet_prelude::EnsureOrigin;
 use frame_support::parameter_types;
 use crate as quadratic_voting_pallet;
-use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnInitialize, OnFinalize};
+use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnInitialize, OnFinalize, Randomness};
 use frame_system as system;
+use frame_support_test::TestRandomness;
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::{
@@ -34,7 +35,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-type AccountId = u64;
+pub type AccountId = u64;
 
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -109,6 +110,9 @@ impl quadratic_voting_pallet::Config for Test {
 	type MaxProposals = MaxProposals;
 	type ManagerOrigin = EnsureAlice;
 	type MaxVotes = ConstU32<1000>;
+	type Randomness = TestRandomness<Self>;
+	type BondForVoting = ConstU128<1>;
+	type BucketSize = ConstU32<5>;
 }
 
 pub struct EnsureAlice;
@@ -134,7 +138,7 @@ impl EnsureOrigin<Origin> for EnsureAlice {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 1 << 100), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 1 << 100), (2, 1<< 100), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

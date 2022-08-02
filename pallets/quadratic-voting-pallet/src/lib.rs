@@ -28,6 +28,7 @@ pub mod pallet {
 	pub type VotingRoundId = u32;
 	pub type ProposalCount = u32;
 	pub type MaxVotes = u32;
+	pub type BucketId = u32;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -40,14 +41,17 @@ pub mod pallet {
 		type BlocksForPreVotingPhase: Get<BlockNumberFor<Self>>;
 		type BlocksForProposalPhase: Get<BlockNumberFor<Self>>;
 		type BlocksForEnactmentPhase: Get<BlockNumberFor<Self>>;
+		#[pallet::constant]
 		type MaxProposals: Get<ProposalCount>;
 		type Token: ReservableCurrency<Self::AccountId>;
 		type BondForVotingRound: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
 		type BondForProposal: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
+		type BondForVoting: Get<<Self::Token as Currency<Self::AccountId>>::Balance>;
 		type ManagerOrigin: EnsureOrigin<Self::Origin>;
 		#[pallet::constant]
 		type MaxVotes: Get<MaxVotes>;
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
+		type BucketSize: Get<BucketId>;
 	}
 
 	type BlockNumberFor<T> = <T as frame_system::Config>::BlockNumber;
@@ -84,11 +88,12 @@ pub mod pallet {
 
 	#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(MaxVotes))]
-	#[codec(mel_bound(AccountId: MaxEncodedLen))]
+	#[codec(mel_bound(AccountId: MaxEncodedLen, BucketId: MaxEncodedLen))]
 	pub struct Proposal<AccountId, MaxVotes> where MaxVotes: Get<u32> {
 		pub initializer: AccountId,
 		pub ayes: BoundedVec<AccountId, MaxVotes>,
 		pub nays: BoundedVec<AccountId, MaxVotes>,
+		pub bucket_id: Option<BucketId>,
 	}
 
 	#[pallet::pallet]
@@ -119,6 +124,19 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn voters_for_bucket)]
+	pub(super) type VotersForBucket<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, VotingRoundId>,
+			NMapKey<Blake2_128Concat, BucketId>,
+			NMapKey<Blake2_128Concat, T::AccountId>
+		),
+		(),
+		OptionQuery
+	>;
+
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
@@ -142,12 +160,18 @@ pub mod pallet {
 		ProposalPhaseCannotStart,
 		// Invalid user tries to start the proposal phase
 		NoPermissionToStartProposalPhase,
+		// Invalid proposal
+		ProposalNotFound,
+		// No proposals in voting round
+		NoProposals,
 		// Storage Overflow
 		StorageOverflow,
 		// Identity not found
 		IdentityNotFound,
 		// only allowed in proposal phase
 		CanCallOnlyDuringProposalPhase,
+		// only allowed in prevoting phase
+		CanCallOnlyDuringPreVotingPhase,
 	}
 
 	#[pallet::genesis_config]
@@ -197,20 +221,35 @@ pub mod pallet {
 
 						// shuffle with random. Not sure if its possible to shuffle in place, so fetching all and shuffling by hand
 						// usage of sort_by was explored
-						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
-						let mut z: [u8; 32] = [0u8; 32];
-						let random_encoded = random.0.encode();
-						for i in random_encoded {
-							z.fill(i);
+						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id);
+
+						// we let the state change regardless of proposals being empty
+						if proposals.is_some() {
+							let mut z: [u8; 32] = [0u8; 32];
+							let random_encoded = random.0.encode();
+							for i in random_encoded {
+								z.fill(i);
+							}
+							let mut rng = ChaChaRng::from_seed(z); // Vec<u8> => [u8; 32]
+							let mut unbounded = Vec::with_capacity(T::MaxProposals::get() as usize);
+							for ele in proposals.expect("qed") {
+								unbounded.push(ele);
+							}
+							unbounded.shuffle(&mut rng);
+							for i in 0..unbounded.len() {
+								let bucket_id = T::BucketSize::get() % ((i as BucketId) + 1);
+								let who = unbounded[i].initializer.clone();
+								unbounded[i] = Proposal::<T::AccountId, T::MaxVotes> {
+									initializer: who,
+									ayes: bounded_vec![],
+									nays: bounded_vec![],
+									bucket_id: Some(bucket_id as BucketId),
+								};
+							}
+							let randomized = BoundedVec::<Proposal<T::AccountId, T::MaxVotes>, T::MaxProposals>::truncate_from(unbounded);
+							ProposalsForVotingRound::<T>::set(voting_round_id, Some(randomized));
+
 						}
-						let mut rng = ChaChaRng::from_seed(z); // Vec<u8> => [u8; 32]
-						let mut unbounded = Vec::with_capacity(T::MaxProposals::get() as usize);
-						for ele in proposals {
-							unbounded.push(ele);
-						}
-						unbounded.shuffle(&mut rng);
-						let randomized = BoundedVec::<Proposal<T::AccountId, T::MaxVotes>, T::MaxProposals>::truncate_from(unbounded);
-						ProposalsForVotingRound::<T>::set(voting_round_id, Some(randomized));
 
 						// transition state
 						voting_round.phase = VotingPhases::PreVoting;
@@ -327,6 +366,7 @@ pub mod pallet {
 						initializer: who.clone(),
 						ayes: bounded_vec![],
 						nays: bounded_vec![],
+						bucket_id: None,
 					};
 
 					if !proposals.is_some() {
@@ -345,6 +385,52 @@ pub mod pallet {
 
 			// bond according to proposal cost
 			T::Token::reserve(&who, T::BondForProposal::get())?;
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn register_to_vote(origin: OriginFor<T>, bucket_id: BucketId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// ensure those who create proposals are backed by identities
+			match pallet_identity::pallet::Pallet::<T>::identity(&who) {
+				Some(_) => {},
+				None => Err(Error::<T>::IdentityNotFound)?,
+			};
+
+			let voting_round_id = match LatestVotingRound::<T>::get() {
+				Some(id) => id,
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			let voting_round = match VotingRounds::<T>::get(voting_round_id) {
+				Some(metadata) => metadata,
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			match voting_round.phase {
+				VotingPhases::PreVoting => {
+					let proposals = match ProposalsForVotingRound::<T>::get(voting_round_id) {
+						Some(proposals) => proposals,
+						None => Err(Error::<T>::NoProposals)?,
+					};
+
+					let proposal = match proposals.get(bucket_id as usize) {
+						Some(proposal) => proposal,
+						None => Err(Error::<T>::ProposalNotFound)?,
+					};
+
+					let bucket_id = proposal.bucket_id.expect("qed");
+
+					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), ());
+				},
+				VotingPhases::Proposal | VotingPhases::Voting | VotingPhases::PostVoting | VotingPhases::Enactment | VotingPhases::Finalized => {
+					Err(Error::<T>::CanCallOnlyDuringPreVotingPhase)?
+				}
+			};
+
+			T::Token::reserve(&who, T::BondForVoting::get())?;
 
 			Ok(())
 		}

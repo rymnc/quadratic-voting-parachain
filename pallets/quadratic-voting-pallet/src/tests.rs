@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, VotingPhases, VotingRounds, Config, ProposalsForVotingRound};
+use crate::{mock::*, Error, VotingPhases, VotingRounds, Config, ProposalsForVotingRound, VotersForBucket};
 use frame_support::{assert_noop, assert_ok};
 use pallet_identity::{Data, IdentityInfo};
 use sp_runtime::traits::ConstU32;
@@ -17,8 +17,8 @@ fn get_default_identity() -> Box<IdentityInfo<ConstU32<2>>> {
 	})
 }
 
-fn set_alice_identity() {
-	pallet_identity::pallet::Pallet::<Test>::set_identity(Origin::signed(1), get_default_identity()).unwrap();
+fn set_identity(id: AccountId) {
+	pallet_identity::pallet::Pallet::<Test>::set_identity(Origin::signed(id), get_default_identity()).unwrap();
 }
 
 #[test]
@@ -63,7 +63,7 @@ During the proposal stage, any actor with an identity can propose a thing to be 
 fn should_allow_proposal_creation() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
-		set_alice_identity();
+		set_identity(1);
 		assert_ok!(
 			QuadraticVotingPallet::submit_proposal(Origin::signed(1))
 		);
@@ -86,7 +86,7 @@ fn should_not_allow_proposal_creation_by_anon() {
 fn should_allow_multiple_proposal_creation() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
-		set_alice_identity();
+		set_identity(1);
 		for _ in 0..MaxProposals::get() - 1 {
 			assert_ok!(
 				QuadraticVotingPallet::submit_proposal(Origin::signed(1))
@@ -100,7 +100,7 @@ fn should_allow_multiple_proposal_creation() {
 fn should_not_allow_proposal_creation_during_pre_voting() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
-		set_alice_identity();
+		set_identity(1);
 		run_to_block(BlocksForPreVotingPhase::get());
 		assert_noop!(
 			QuadraticVotingPallet::submit_proposal(Origin::signed(1)),
@@ -113,7 +113,7 @@ fn should_not_allow_proposal_creation_during_pre_voting() {
 fn should_throw_if_proposal_count_overflows() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
-		set_alice_identity();
+		set_identity(1);
 		for _ in 0..MaxProposals::get() {
 			assert_ok!(
 				QuadraticVotingPallet::submit_proposal(Origin::signed(1))
@@ -127,3 +127,38 @@ fn should_throw_if_proposal_count_overflows() {
 	})
 }
 
+#[test]
+fn should_shuffle_on_pre_voting_start() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+		set_identity(1);
+		set_identity(2);
+
+		for i in 0..MaxProposals::get() {
+			let origin = (i % 2) + 1;
+			assert_ok!(
+				QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId))
+			);
+		}
+
+		run_to_block(10);
+
+		let proposals = ProposalsForVotingRound::<Test>::get(1u32).unwrap();
+
+		// since we're using TestRandomness, the output is predictable :)
+		assert_eq!(
+			proposals[0].initializer,
+			2
+		);
+
+		assert_eq!(
+			proposals[1].initializer,
+			1
+		);
+
+		assert_eq!(
+			proposals[2].initializer,
+			1
+		);
+	})
+}
