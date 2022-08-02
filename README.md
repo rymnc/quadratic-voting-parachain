@@ -88,3 +88,7 @@ allow for bridging data from these p2p networks to the chain state via transacti
 This would require extending the identity pallet to have reputation.
 
 3. Dispatchable proposals are currently not implemented. When a proposal is finalized, we just deposit an Event. In the future, we should implement the dispatchable similar to how it is done in the [collective pallet](https://github.com/paritytech/substrate/blob/master/frame/collective/src/lib.rs#L184-L187).
+
+4. Votes are submitted simply as an aye or nay. This could lead to censorship since collators are able to look at the voters decision.
+A commit-reveal method could be used, however that would require an additional overhead on the client side, which needs to be connected to the internet throughout the voting and post-voting phases, to ensure that the vote is not invalidated.
+There is an old pallet for [zk](https://github.com/Polkadex-Substrate/megaclite) which could be used for zk-based voting, but this needs more research in the context of quadratic voting.
