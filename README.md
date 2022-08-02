@@ -105,3 +105,5 @@ which is selected by an inequality -
 	This committee is then open to disputes and challenges by regular voters.
 
 6. There are no integrity checks for the constants, they should be implemented in the future.
+
+7. There are asserts in tests which don't need to exist, they should be removed in the future.

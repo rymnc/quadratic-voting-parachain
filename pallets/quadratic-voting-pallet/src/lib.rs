@@ -69,6 +69,12 @@ pub mod pallet {
 		Finalized,
 	}
 
+	#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum VoteDirection {
+		Aye,
+		Nay
+	}
+
 	#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub struct VotingPhaseData<BlockNumber> {
 		pub start_block: BlockNumber,
@@ -92,14 +98,14 @@ pub mod pallet {
 		Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxVotes))]
-	#[codec(mel_bound(AccountId: MaxEncodedLen, BucketId: MaxEncodedLen))]
-	pub struct Proposal<AccountId, MaxVotes>
+	#[codec(mel_bound(AccountId: MaxEncodedLen, Balance: MaxEncodedLen))]
+	pub struct Proposal<AccountId, Balance, MaxVotes>
 	where
 		MaxVotes: Get<u32>,
 	{
 		pub initializer: AccountId,
-		pub ayes: BoundedVec<AccountId, MaxVotes>,
-		pub nays: BoundedVec<AccountId, MaxVotes>,
+		pub ayes: BoundedVec<Balance, MaxVotes>,
+		pub nays: BoundedVec<Balance, MaxVotes>,
 		pub bucket_id: Option<BucketId>,
 	}
 
@@ -127,7 +133,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		VotingRoundId,
-		BoundedVec<Proposal<T::AccountId, T::MaxVotes>, T::MaxProposals>,
+		BoundedVec<Proposal<T::AccountId, BalanceOf<T>, T::MaxVotes>, T::MaxProposals>,
 		OptionQuery,
 	>;
 
@@ -140,7 +146,8 @@ pub mod pallet {
 			NMapKey<Blake2_128Concat, BucketId>,
 			NMapKey<Blake2_128Concat, T::AccountId>,
 		),
-		BalanceOf<T>,
+		// total bond, remaining bond
+		(BalanceOf<T>, BalanceOf<T>),
 		OptionQuery,
 	>;
 
@@ -181,6 +188,12 @@ pub mod pallet {
 		CanCallOnlyDuringProposalPhase,
 		// only allowed in prevoting phase
 		CanCallOnlyDuringPreVotingPhase,
+		// only allowed in voting phase
+		CanCallOnlyDuringVotingPhase,
+		// no tokens bonded to vote
+		NoTokensBonded,
+		// user tried to vote more than their bond
+		CannotVoteMoreThanBond,
 	}
 
 	#[pallet::genesis_config]
@@ -248,7 +261,7 @@ pub mod pallet {
 							for i in 0..unbounded.len() {
 								let bucket_id = T::BucketSize::get() % ((i as BucketId) + 1);
 								let who = unbounded[i].initializer.clone();
-								unbounded[i] = Proposal::<T::AccountId, T::MaxVotes> {
+								unbounded[i] = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
 									initializer: who,
 									ayes: bounded_vec![],
 									nays: bounded_vec![],
@@ -256,7 +269,7 @@ pub mod pallet {
 								};
 							}
 							let randomized = BoundedVec::<
-								Proposal<T::AccountId, T::MaxVotes>,
+								Proposal<T::AccountId, BalanceOf<T>, T::MaxVotes>,
 								T::MaxProposals,
 							>::truncate_from(unbounded);
 							ProposalsForVotingRound::<T>::set(voting_round_id, Some(randomized));
@@ -270,7 +283,8 @@ pub mod pallet {
 				VotingPhases::PreVoting => {
 					if block_number == voting_round.pre_voting_phase.end_block {
 						// transition state
-						todo!();
+						voting_round.phase = VotingPhases::Voting;
+						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
 					}
 				},
 				VotingPhases::Voting => {
@@ -288,7 +302,8 @@ pub mod pallet {
 				VotingPhases::Enactment => {
 					if block_number == voting_round.enactment_phase.end_block {
 						// transition state
-						todo!();
+						voting_round.phase = VotingPhases::Finalized;
+						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
 					}
 				},
 				VotingPhases::Finalized => (),
@@ -354,7 +369,7 @@ pub mod pallet {
 
 			// ensure those who create proposals are backed by identities
 			match pallet_identity::pallet::Pallet::<T>::identity(&who) {
-				Some(id) => {},
+				Some(_) => {},
 				None => Err(Error::<T>::IdentityNotFound)?,
 			};
 
@@ -372,7 +387,7 @@ pub mod pallet {
 				VotingPhases::Proposal => {
 					// check if proposals exist
 					let proposals = ProposalsForVotingRound::<T>::get(voting_round_id);
-					let new_proposal = Proposal::<T::AccountId, T::MaxVotes> {
+					let new_proposal = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
 						initializer: who.clone(),
 						ayes: bounded_vec![],
 						nays: bounded_vec![],
@@ -381,7 +396,7 @@ pub mod pallet {
 
 					if !proposals.is_some() {
 						let mut new_proposal_list: BoundedVec<
-							Proposal<T::AccountId, T::MaxVotes>,
+							Proposal<T::AccountId, BalanceOf<T>, T::MaxVotes>,
 							T::MaxProposals,
 						> = bounded_vec![];
 						// wouldn't actually error out
@@ -437,7 +452,7 @@ pub mod pallet {
 						Some(proposals) => proposals,
 						None => Err(Error::<T>::NoProposals)?,
 					};
-					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), votes);
+					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), (votes, votes));
 				},
 				VotingPhases::Proposal |
 				VotingPhases::Voting |
@@ -447,6 +462,75 @@ pub mod pallet {
 			};
 
 			T::Token::reserve(&who, votes)?;
+
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn vote(origin: OriginFor<T>, proposal_id: ProposalCount, vote: BalanceOf<T>, direction: VoteDirection) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let voting_round_id = match LatestVotingRound::<T>::get() {
+				Some(id) => id,
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			let voting_round = match VotingRounds::<T>::get(voting_round_id) {
+				Some(metadata) => metadata,
+				None => Err(Error::<T>::VotingRoundNotFound)?,
+			};
+
+			match voting_round.phase {
+				VotingPhases::Voting => {
+					let mut proposals = match ProposalsForVotingRound::<T>::get(voting_round_id) {
+						Some(proposals) => proposals,
+						None => Err(Error::<T>::NoProposals)?,
+					};
+
+					let proposal = match proposals.get_mut(proposal_id as usize) {
+						Some(proposal) => proposal,
+						None => Err(Error::<T>::ProposalNotFound)?,
+					};
+
+					let attached_bucket_id = proposal.bucket_id.expect("qed");
+
+					let mut bonded_tokens = match VotersForBucket::<T>::get((voting_round_id, attached_bucket_id, &who)) {
+						Some(tokens) => tokens,
+						None => Err(Error::<T>::NoTokensBonded)?,
+					};
+
+					// check if vote is greater than the remaining bond
+					if vote > bonded_tokens.1 {
+						Err(Error::<T>::CannotVoteMoreThanBond)?
+					}
+
+					// we accept the vote now
+					let _ = match direction {
+						VoteDirection::Aye => {
+							proposal.ayes.try_push(vote).map_err(|_| Error::<T>::StorageOverflow)?;
+							bonded_tokens = (bonded_tokens.0, bonded_tokens.1 - vote);
+						},
+						VoteDirection::Nay => {
+							proposal.nays.try_push(vote).map_err(|_| Error::<T>::StorageOverflow)?;
+							bonded_tokens = (bonded_tokens.0, bonded_tokens.1 - vote);
+						}
+					};
+
+					proposals[proposal_id as usize] = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
+						initializer: proposal.initializer.clone(),
+						ayes: proposal.ayes.clone(),
+						nays: proposal.nays.clone(),
+						bucket_id: proposal.bucket_id,
+					};
+					ProposalsForVotingRound::<T>::set(voting_round_id, Some(proposals));
+					VotersForBucket::<T>::set((voting_round_id, attached_bucket_id, &who), Some(bonded_tokens));
+				},
+				VotingPhases::Proposal |
+				VotingPhases::PreVoting |
+				VotingPhases::PostVoting |
+				VotingPhases::Enactment |
+				VotingPhases::Finalized => Err(Error::<T>::CanCallOnlyDuringVotingPhase)?,
+			};
 
 			Ok(())
 		}

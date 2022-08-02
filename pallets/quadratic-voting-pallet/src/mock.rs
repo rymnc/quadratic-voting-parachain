@@ -95,7 +95,9 @@ impl pallet_identity::Config for Test {
 
 parameter_types! {
 	pub const BlocksForPreVotingPhase: u64 = 10;
+	pub const BlocksForVotingPhase: u64 = 10;
 	pub const MaxProposals: u32 = 10;
+	pub const OneBlock: u64 = 1;
 }
 
 impl quadratic_voting_pallet::Config for Test {
@@ -104,8 +106,8 @@ impl quadratic_voting_pallet::Config for Test {
 	type BlocksForProposalPhase = ConstU64<10>;
 	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
 	type BlocksForPostVotingPhase = ConstU64<10>;
-	type OneBlock = ConstU64<1>;
-	type BlocksForVotingPhase = ConstU64<10>;
+	type OneBlock = OneBlock;
+	type BlocksForVotingPhase = BlocksForVotingPhase;
 	type BlocksForEnactmentPhase = ConstU64<10>;
 	type BondForVotingRound = ConstU128<1000>;
 	type BondForProposal = ConstU128<20>;
