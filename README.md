@@ -10,7 +10,7 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 ### Stages of Voting
 
-0. A member of the technical committee kicks off the voting round. In the future, this can be swapped out for actual governance OR have it automated when the previous voting round is finalized.
+0. A member of the technical committee kicks off the voting round.
 
 #### Proposal Phase (~1 week)
 
@@ -38,7 +38,6 @@ All stages of voting are restricted to the users that have an identity - and hav
 1. The vote is enacted by the technical committee
 2. The bonds are returned to the proposers
 3. The stake is returned to the voters
-
 
 ## Technical Details
 
@@ -77,13 +76,13 @@ For a truly censorship-resistant source of randomness, a public protocol like [d
 store/get block data. A generic libp2p node would allow a much more connected web of networks, with substrate nodes deciding which p2p networks to communicate with. OCW's natively
 allow for bridging data from these p2p networks to the chain state via transactions.
 
-Therefore, to have an additional source of randomness (on a common-good parachain?), the following steps should be completed -
-- Create the drand libp2p module in substrate's client code
-- Expose it to use with OCW
-- Have an OCW fetch the latest randomness, verify it, and post a transaction to the chain
-- Use the randomness from the runtime
+	Therefore, to have an additional source of randomness (on a common-good parachain?), the following steps should be completed -
+   - Create the drand libp2p module in substrate's client code
+   - Expose it to use with OCW
+   - Have an OCW fetch the latest randomness, verify it, and post a transaction to the chain
+   - Use the randomness from the runtime
 
-This randomness could then be used to group proposals into buckets, which would prevent the block weight from being completely used due to the relation of proposals to the number of voters.
+	This randomness could then be used to group proposals into buckets, which would prevent the block weight from being completely used due to the relation of proposals to the number of voters.
 
 2. Creation of voting rounds is restricted to a member of the technical commitee. This should be open to anyone with an identity with a "reputation" greater than a set threshold
 This would require extending the identity pallet to have reputation.
