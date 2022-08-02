@@ -167,6 +167,18 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn proposal_outcome)]
+	pub(super) type ProposalOutcome<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, VotingRoundId>,
+			NMapKey<Blake2_128Concat, ProposalCount>,
+		),
+		(BalanceOf<T>, VoteDirection),
+		OptionQuery,
+	>;
+
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
@@ -310,7 +322,31 @@ pub mod pallet {
 				VotingPhases::Voting => {
 					if block_number == voting_round.voting_phase.end_block {
 						// tally votes + transition state
-						todo!();
+						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
+
+						for i in 0..proposals.len() {
+							let mut ayes: BalanceOf<T> = 0u32.into();
+
+							for aye in &proposals[i].ayes {
+								ayes += *aye;
+							}
+							let mut nays:  BalanceOf<T> = 0u32.into();
+
+							for nay in &proposals[i].nays {
+								nays += *nay;
+							}
+
+							let key = (voting_round_id, i as ProposalCount);
+							if ayes > nays {
+								ProposalOutcome::<T>::set(key, Some((ayes, VoteDirection::Aye)));
+							} else {
+								ProposalOutcome::<T>::set(key, Some((nays, VoteDirection::Nay)));
+							}
+						}
+
+						// transition state
+						voting_round.phase = VotingPhases::PostVoting;
+						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
 					}
 				},
 				VotingPhases::PostVoting => {
