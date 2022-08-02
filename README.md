@@ -14,7 +14,7 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 #### Proposal Phase (~1 week)
 
-1. A proposer creates a proposal and submits it to the chain, with a bond which will be returned to them upon vote execution. Each identity can only create one proposal per voting round.
+1. A proposer creates a proposal and submits it to the chain, with a bond which will be returned to them upon vote execution.
 
 #### Pre Voting Phase (~1 week)
 
@@ -103,3 +103,5 @@ which is selected by an inequality -
 	Committee members are tasked with tallying the votes, which reduces overhead on regular voters if compute-heavy cryptographic primitives (like ZK) are used to wrap votes.
 
 	This committee is then open to disputes and challenges by regular voters.
+
+6. There are no integrity checks for the constants, they should be implemented in the future.

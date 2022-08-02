@@ -15,6 +15,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
+rand = { default-features = false }
+rand_chacha = { default-features = false }
 
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.26" }
@@ -25,6 +27,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", default-featur
 pallet-identity = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 pallet-collective = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 
 [dev-dependencies]
 serde = { version = "1.0.132" }
@@ -45,6 +48,7 @@ std = [
 	"pallet-collective/std",
 	"pallet-identity/std",
 	"pallet-balances/std",
+	"pallet-randomness-collective-flip/std",
 	"frame-system/std",
 ]
 try-runtime = [ "frame-support/try-runtime" ]

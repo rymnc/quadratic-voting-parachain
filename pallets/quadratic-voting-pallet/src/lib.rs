@@ -15,14 +15,16 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{Currency, EnsureOrigin, ReservableCurrency},
+		traits::{Currency, EnsureOrigin, ReservableCurrency, Randomness},
 		storage::bounded_vec::BoundedVec,
 		bounded_vec,
 	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::TypeInfo;
+	use rand::{seq::SliceRandom, SeedableRng}; // 0.6.5
+	use rand_chacha::ChaChaRng; // 0.1.1
 
-	// Ideally, these would be in a primitives directory, but
+	// Ideally, these would be in a primitives directory
 	pub type VotingRoundId = u32;
 	pub type ProposalCount = u32;
 	pub type MaxVotes = u32;
@@ -45,6 +47,7 @@ pub mod pallet {
 		type ManagerOrigin: EnsureOrigin<Self::Origin>;
 		#[pallet::constant]
 		type MaxVotes: Get<MaxVotes>;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 	}
 
 	type BlockNumberFor<T> = <T as frame_system::Config>::BlockNumber;
@@ -189,9 +192,30 @@ pub mod pallet {
 				VotingPhases::Proposal => {
 					if block_number == voting_round.proposal_phase.end_block {
 						// group proposals into buckets of k size + transition state
+						// group proposals
+						let random = T::Randomness::random(&block_number.encode());
+
+						// shuffle with random. Not sure if its possible to shuffle in place, so fetching all and shuffling by hand
+						// usage of sort_by was explored
+						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
+						let mut z: [u8; 32] = [0u8; 32];
+						let random_encoded = random.0.encode();
+						for i in random_encoded {
+							z.fill(i);
+						}
+						let mut rng = ChaChaRng::from_seed(z); // Vec<u8> => [u8; 32]
+						let mut unbounded = Vec::with_capacity(T::MaxProposals::get() as usize);
+						for ele in proposals {
+							unbounded.push(ele);
+						}
+						unbounded.shuffle(&mut rng);
+						let randomized = BoundedVec::<Proposal<T::AccountId, T::MaxVotes>, T::MaxProposals>::truncate_from(unbounded);
+						ProposalsForVotingRound::<T>::set(voting_round_id, Some(randomized));
+
+						// transition state
 						voting_round.phase = VotingPhases::PreVoting;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
-						// todo!();
+
 					}
 				}
 				VotingPhases::PreVoting => {
