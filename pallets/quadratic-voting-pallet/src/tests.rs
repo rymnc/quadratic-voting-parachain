@@ -1,4 +1,6 @@
-use crate::{mock::*, Error, VotingPhases, VotingRounds, Config, ProposalsForVotingRound, VotersForBucket};
+use crate::{
+	mock::*, Config, Error, ProposalsForVotingRound, VotersForBucket, VotingPhases, VotingRounds,
+};
 use frame_support::{assert_noop, assert_ok};
 use pallet_identity::{Data, IdentityInfo};
 use sp_runtime::traits::ConstU32;
@@ -18,7 +20,11 @@ fn get_default_identity() -> Box<IdentityInfo<ConstU32<2>>> {
 }
 
 fn set_identity(id: AccountId) {
-	pallet_identity::pallet::Pallet::<Test>::set_identity(Origin::signed(id), get_default_identity()).unwrap();
+	pallet_identity::pallet::Pallet::<Test>::set_identity(
+		Origin::signed(id),
+		get_default_identity(),
+	)
+	.unwrap();
 }
 
 #[test]
@@ -35,10 +41,7 @@ fn should_not_transition_to_pre_voting_prematurely() {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		assert_eq!(QuadraticVotingPallet::latest_voting_round(), Some(1u32));
 		run_to_block(BlocksForPreVotingPhase::get() - 1);
-		assert_eq!(
-			VotingRounds::<Test>::get(1u32).unwrap().phase,
-			VotingPhases::Proposal
-		);
+		assert_eq!(VotingRounds::<Test>::get(1u32).unwrap().phase, VotingPhases::Proposal);
 	})
 }
 
@@ -48,13 +51,9 @@ fn can_transition_to_pre_voting() {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		assert_eq!(QuadraticVotingPallet::latest_voting_round(), Some(1u32));
 		run_to_block(BlocksForPreVotingPhase::get());
-		assert_eq!(
-			VotingRounds::<Test>::get(1u32).unwrap().phase,
-			VotingPhases::PreVoting
-		);
+		assert_eq!(VotingRounds::<Test>::get(1u32).unwrap().phase, VotingPhases::PreVoting);
 	})
 }
-
 
 /*
 During the proposal stage, any actor with an identity can propose a thing to be voted upon
@@ -64,9 +63,7 @@ fn should_allow_proposal_creation() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		set_identity(1);
-		assert_ok!(
-			QuadraticVotingPallet::submit_proposal(Origin::signed(1))
-		);
+		assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(1)));
 		assert!(ProposalsForVotingRound::<Test>::get(1u32).is_some())
 	})
 }
@@ -88,9 +85,7 @@ fn should_allow_multiple_proposal_creation() {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		set_identity(1);
 		for _ in 0..MaxProposals::get() - 1 {
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(1))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(1)));
 		}
 		assert!(ProposalsForVotingRound::<Test>::get(1u32).is_some())
 	})
@@ -115,9 +110,7 @@ fn should_throw_if_proposal_count_overflows() {
 		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
 		set_identity(1);
 		for _ in 0..MaxProposals::get() {
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(1))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(1)));
 		}
 
 		assert_noop!(
@@ -136,9 +129,7 @@ fn should_shuffle_on_pre_voting_start() {
 
 		for i in 0..MaxProposals::get() {
 			let origin = (i % 2) + 1;
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
 		}
 
 		run_to_block(10);
@@ -146,20 +137,11 @@ fn should_shuffle_on_pre_voting_start() {
 		let proposals = ProposalsForVotingRound::<Test>::get(1u32).unwrap();
 
 		// since we're using TestRandomness, the output is predictable :)
-		assert_eq!(
-			proposals[0].initializer,
-			2
-		);
+		assert_eq!(proposals[0].initializer, 2);
 
-		assert_eq!(
-			proposals[1].initializer,
-			1
-		);
+		assert_eq!(proposals[1].initializer, 1);
 
-		assert_eq!(
-			proposals[2].initializer,
-			1
-		);
+		assert_eq!(proposals[2].initializer, 1);
 	})
 }
 
@@ -173,13 +155,10 @@ fn should_not_allow_voter_registration_by_anon() {
 
 		for i in 0..MaxProposals::get() {
 			let origin = (i % 2) + 1;
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
 		}
 
 		run_to_block(10);
-
 
 		assert_noop!(
 			QuadraticVotingPallet::register_to_vote(Origin::signed(3), 0),
@@ -198,13 +177,10 @@ fn should_not_allow_invalid_bucket_id() {
 
 		for i in 0..MaxProposals::get() {
 			let origin = (i % 2) + 1;
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
 		}
 
 		run_to_block(10);
-
 
 		assert_noop!(
 			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 6),
@@ -223,13 +199,10 @@ fn should_not_allow_voter_registration_during_other_phases() {
 
 		for i in 0..MaxProposals::get() {
 			let origin = (i % 2) + 1;
-			assert_ok!(
-				QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId))
-			);
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
 		}
 
 		run_to_block(9);
-
 
 		assert_noop!(
 			QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3),
@@ -238,3 +211,26 @@ fn should_not_allow_voter_registration_during_other_phases() {
 	})
 }
 
+#[test]
+fn should_allow_voter_registration() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+
+		set_identity(1);
+		set_identity(2);
+
+		for i in 0..MaxProposals::get() {
+			let origin = (i % 2) + 1;
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
+		}
+
+		run_to_block(10);
+
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3),);
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2),);
+
+		assert_eq!(VotersForBucket::<Test>::get((1u32, 3, 1)), Some(()));
+
+		assert_eq!(VotersForBucket::<Test>::get((1u32, 2, 2)), Some(()));
+	})
+}

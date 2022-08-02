@@ -14,15 +14,15 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		pallet_prelude::*,
-		traits::{Currency, EnsureOrigin, ReservableCurrency, Randomness},
-		storage::bounded_vec::BoundedVec,
 		bounded_vec,
+		pallet_prelude::*,
+		storage::bounded_vec::BoundedVec,
+		traits::{Currency, EnsureOrigin, Randomness, ReservableCurrency},
 	};
 	use frame_system::pallet_prelude::*;
-	use scale_info::TypeInfo;
 	use rand::{seq::SliceRandom, SeedableRng}; // 0.6.5
-	use rand_chacha::ChaChaRng; // 0.1.1
+	use rand_chacha::ChaChaRng;
+	use scale_info::TypeInfo; // 0.1.1
 
 	// Ideally, these would be in a primitives directory
 	pub type VotingRoundId = u32;
@@ -86,10 +86,15 @@ pub mod pallet {
 		pub phase: VotingPhases,
 	}
 
-	#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(MaxVotes))]
 	#[codec(mel_bound(AccountId: MaxEncodedLen, BucketId: MaxEncodedLen))]
-	pub struct Proposal<AccountId, MaxVotes> where MaxVotes: Get<u32> {
+	pub struct Proposal<AccountId, MaxVotes>
+	where
+		MaxVotes: Get<u32>,
+	{
 		pub initializer: AccountId,
 		pub ayes: BoundedVec<AccountId, MaxVotes>,
 		pub nays: BoundedVec<AccountId, MaxVotes>,
@@ -131,10 +136,10 @@ pub mod pallet {
 		(
 			NMapKey<Blake2_128Concat, VotingRoundId>,
 			NMapKey<Blake2_128Concat, BucketId>,
-			NMapKey<Blake2_128Concat, T::AccountId>
+			NMapKey<Blake2_128Concat, T::AccountId>,
 		),
 		(),
-		OptionQuery
+		OptionQuery,
 	>;
 
 	// Pallets use events to inform users when important changes are made.
@@ -207,11 +212,11 @@ pub mod pallet {
 			};
 			weight += 1;
 			if voting_round_id == 0 {
-				return weight;
+				return weight
 			}
 
-			let mut voting_round = VotingRounds::<T>::get(voting_round_id)
-				.expect("Past voting round must exist");
+			let mut voting_round =
+				VotingRounds::<T>::get(voting_round_id).expect("Past voting round must exist");
 
 			// state machine for voting rounds
 			match voting_round.phase {
@@ -248,42 +253,43 @@ pub mod pallet {
 									bucket_id: Some(bucket_id as BucketId),
 								};
 							}
-							let randomized = BoundedVec::<Proposal<T::AccountId, T::MaxVotes>, T::MaxProposals>::truncate_from(unbounded);
+							let randomized = BoundedVec::<
+								Proposal<T::AccountId, T::MaxVotes>,
+								T::MaxProposals,
+							>::truncate_from(unbounded);
 							ProposalsForVotingRound::<T>::set(voting_round_id, Some(randomized));
-
 						}
 
 						// transition state
 						voting_round.phase = VotingPhases::PreVoting;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
-
 					}
-				}
+				},
 				VotingPhases::PreVoting => {
 					if block_number == voting_round.pre_voting_phase.end_block {
 						// transition state
 						todo!();
 					}
-				}
+				},
 				VotingPhases::Voting => {
 					if block_number == voting_round.voting_phase.end_block {
 						// tally votes + transition state
 						todo!();
 					}
-				}
+				},
 				VotingPhases::PostVoting => {
 					if block_number == voting_round.post_voting_phase.end_block {
 						// return bond and stake + transition state
 						todo!();
 					}
-				}
+				},
 				VotingPhases::Enactment => {
 					if block_number == voting_round.enactment_phase.end_block {
 						// transition state
 						todo!();
 					}
-				}
-				VotingPhases::Finalized => ()
+				},
+				VotingPhases::Finalized => (),
 			};
 			weight
 		}
@@ -372,17 +378,25 @@ pub mod pallet {
 					};
 
 					if !proposals.is_some() {
-						let mut new_proposal_list: BoundedVec<Proposal::<T::AccountId, T::MaxVotes>, T::MaxProposals> = bounded_vec![];
+						let mut new_proposal_list: BoundedVec<
+							Proposal<T::AccountId, T::MaxVotes>,
+							T::MaxProposals,
+						> = bounded_vec![];
 						// wouldn't actually error out
-						new_proposal_list.try_insert(0 as usize, new_proposal).map_err(|_| Error::<T>::StorageOverflow)?;
+						new_proposal_list
+							.try_insert(0 as usize, new_proposal)
+							.map_err(|_| Error::<T>::StorageOverflow)?;
 						ProposalsForVotingRound::<T>::set(voting_round_id, Some(new_proposal_list));
 					} else {
-						ProposalsForVotingRound::<T>::try_append(voting_round_id,new_proposal).map_err(|_| Error::<T>::StorageOverflow)?;
+						ProposalsForVotingRound::<T>::try_append(voting_round_id, new_proposal)
+							.map_err(|_| Error::<T>::StorageOverflow)?;
 					}
-				}
-				VotingPhases::PreVoting | VotingPhases::Voting | VotingPhases::PostVoting | VotingPhases::Enactment | VotingPhases::Finalized => {
-					Err(Error::<T>::CanCallOnlyDuringProposalPhase)?
-				}
+				},
+				VotingPhases::PreVoting |
+				VotingPhases::Voting |
+				VotingPhases::PostVoting |
+				VotingPhases::Enactment |
+				VotingPhases::Finalized => Err(Error::<T>::CanCallOnlyDuringProposalPhase)?,
 			};
 
 			// bond according to proposal cost
@@ -417,23 +431,17 @@ pub mod pallet {
 
 			match voting_round.phase {
 				VotingPhases::PreVoting => {
-					let proposals = match ProposalsForVotingRound::<T>::get(voting_round_id) {
+					match ProposalsForVotingRound::<T>::get(voting_round_id) {
 						Some(proposals) => proposals,
 						None => Err(Error::<T>::NoProposals)?,
 					};
-
-					let proposal = match proposals.get(bucket_id as usize) {
-						Some(proposal) => proposal,
-						None => Err(Error::<T>::ProposalNotFound)?,
-					};
-
-					let bucket_id = proposal.bucket_id.expect("qed");
-
 					VotersForBucket::<T>::insert((voting_round_id, bucket_id, &who), ());
 				},
-				VotingPhases::Proposal | VotingPhases::Voting | VotingPhases::PostVoting | VotingPhases::Enactment | VotingPhases::Finalized => {
-					Err(Error::<T>::CanCallOnlyDuringPreVotingPhase)?
-				}
+				VotingPhases::Proposal |
+				VotingPhases::Voting |
+				VotingPhases::PostVoting |
+				VotingPhases::Enactment |
+				VotingPhases::Finalized => Err(Error::<T>::CanCallOnlyDuringPreVotingPhase)?,
 			};
 
 			T::Token::reserve(&who, T::BondForVoting::get())?;
@@ -489,6 +497,6 @@ pub mod pallet {
 				end_block: enactment_end,
 			},
 			finalized_block: finalized,
-		});
+		})
 	}
 }

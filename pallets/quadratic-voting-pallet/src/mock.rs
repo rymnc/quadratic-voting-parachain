@@ -1,9 +1,11 @@
-use frame_support::pallet_prelude::EnsureOrigin;
-use frame_support::parameter_types;
 use crate as quadratic_voting_pallet;
-use frame_support::traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnInitialize, OnFinalize, Randomness};
-use frame_system as system;
+use frame_support::{
+	pallet_prelude::EnsureOrigin,
+	parameter_types,
+	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize, Randomness},
+};
 use frame_support_test::TestRandomness;
+use frame_system as system;
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::{
@@ -128,8 +130,9 @@ impl EnsureOrigin<Origin> for EnsureAlice {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn successful_origin() -> Origin {
-		let zero_account_id = AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-			.expect("infinite length input; no invalid inputs for type; qed");
+		let zero_account_id =
+			AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+				.expect("infinite length input; no invalid inputs for type; qed");
 		Origin::from(RawOrigin::Signed(zero_account_id))
 	}
 }
@@ -138,7 +141,7 @@ impl EnsureOrigin<Origin> for EnsureAlice {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 1 << 100), (2, 1<< 100), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 1 << 100), (2, 1 << 100), (3, 10), (4, 10), (5, 2)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
