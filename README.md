@@ -111,9 +111,14 @@ which is selected by an inequality -
 8. Currently, we return the voting round creation bond and the proposal creation bond according to the value passed into the config. However, during a runtime upgrade, if
 the config for the bonds are changed, then that would lead to erroneous values being returned to the party upon vote execution. A simple solve for this would be to store the bond amount.
 
+9. Currently, assumptions on weights per function are made. Ideally, one would write benchmarks, implement the DbWeights trait so that setting the weight for an extrinsic or storage access can be as idiomatic as possible.
+
+## Bonuses Achieved
+
+1. "A more complex proposal system where users can vote on multiple things at once, and have to consider how they want to distribute their votes across them."
+2. "Integrate this into a working node."
+3. "Integrate node as a working parachain on a relay chain."
+
 ## Todos
 
-1. Add up the weights in the on_initialize hook
-2. Add more events, actually deposit the events
-3. Update the parachain runtime with the new config
-4. Add tests, tests and more tests
+1. More tests

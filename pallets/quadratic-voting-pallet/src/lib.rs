@@ -197,12 +197,8 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		// Emits the voting round id
-		ProposalPhaseStarted(VotingRoundId),
-		PreVotingPhaseStarted(VotingRoundId),
-		VotingPhaseStarted(VotingRoundId),
-		PostVotingPhaseStarted(VotingRoundId),
-		EnactmentPhaseStarted(VotingRoundId),
-		Finalized(VotingRoundId),
+		PhaseTransition((VotingPhases, VotingRoundId)),
+		ProposalSubmitted(ProposalCount),
 	}
 
 	// Errors inform users that something went wrong.
@@ -274,6 +270,7 @@ pub mod pallet {
 				return weight
 			}
 
+			weight += 1;
 			let mut voting_round =
 				VotingRounds::<T>::get(voting_round_id).expect("Past voting round must exist");
 
@@ -283,10 +280,12 @@ pub mod pallet {
 					if block_number == voting_round.proposal_phase.end_block {
 						// group proposals into buckets of k size + transition state
 						// group proposals
+						weight += 1;
 						let random = T::Randomness::random(&block_number.encode());
 
 						// shuffle with random. Not sure if its possible to shuffle in place, so fetching all and shuffling by hand
 						// usage of sort_by was explored
+						weight += T::MaxProposals::get() as u64;
 						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id);
 
 						// we let the state change regardless of proposals being empty
@@ -320,20 +319,27 @@ pub mod pallet {
 						}
 
 						// transition state
+						weight += 1;
 						voting_round.phase = VotingPhases::PreVoting;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
+						Self::deposit_event(Event::PhaseTransition((VotingPhases::PreVoting, voting_round_id)));
+
 					}
 				},
 				VotingPhases::PreVoting => {
 					if block_number == voting_round.pre_voting_phase.end_block {
 						// transition state
+						weight += 1;
 						voting_round.phase = VotingPhases::Voting;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
+						Self::deposit_event(Event::PhaseTransition((VotingPhases::Voting, voting_round_id)));
+
 					}
 				},
 				VotingPhases::Voting => {
 					if block_number == voting_round.voting_phase.end_block {
 						// tally votes + transition state
+						weight += T::MaxProposals::get() as u64;
 						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
 
 						for i in 0..proposals.len() {
@@ -358,17 +364,22 @@ pub mod pallet {
 						}
 
 						// transition state
+						weight += 1;
 						voting_round.phase = VotingPhases::PostVoting;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
+						Self::deposit_event(Event::PhaseTransition((VotingPhases::PostVoting, voting_round_id)));
 					}
 				},
 				VotingPhases::PostVoting => {
 					if block_number == voting_round.post_voting_phase.end_block {
 						// return voting round bond, proposal bound, and vote bond + transition state
+						weight += 1;
 						T::Token::unreserve(&voting_round.initializer, T::BondForVotingRound::get());
+						weight += T::MaxProposals::get() as u64;
 						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
 						for i in 0..proposals.len() {
 							T::Token::unreserve(&proposals[i].initializer, T::BondForProposal::get());
+							weight += T::MaxVotes::get() as u64;
 							let voters = match VotersVoted::<T>::get((voting_round_id, i as ProposalCount)) {
 								Some(voters) => voters,
 								None => bounded_vec![],
@@ -384,18 +395,20 @@ pub mod pallet {
 								T::Token::unreserve(&voter, bond.0);
 							}
 						}
-
-
 						// transition state
+						weight += 1;
 						voting_round.phase = VotingPhases::Enactment;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
+						Self::deposit_event(Event::PhaseTransition((VotingPhases::Enactment, voting_round_id)));
 					}
 				},
 				VotingPhases::Enactment => {
 					if block_number == voting_round.enactment_phase.end_block {
 						// transition state
+						weight += 1;
 						voting_round.phase = VotingPhases::Finalized;
 						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
+						Self::deposit_event(Event::PhaseTransition((VotingPhases::Finalized, voting_round_id)));
 					}
 				},
 				VotingPhases::Finalized => (),
@@ -449,9 +462,8 @@ pub mod pallet {
 			VotingRounds::<T>::insert(next_voting_round_id, next_voting_round_metadata.clone());
 			LatestVotingRound::<T>::put(next_voting_round_id);
 
-			Self::deposit_event(Event::ProposalPhaseStarted(next_voting_round_id));
+			Self::deposit_event(Event::PhaseTransition((VotingPhases::Proposal, next_voting_round_id)));
 
-			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
 
@@ -496,9 +508,11 @@ pub mod pallet {
 							.try_insert(0 as usize, new_proposal)
 							.map_err(|_| Error::<T>::StorageOverflow)?;
 						ProposalsForVotingRound::<T>::set(voting_round_id, Some(new_proposal_list));
+						Self::deposit_event(Event::ProposalSubmitted(0));
 					} else {
 						ProposalsForVotingRound::<T>::try_append(voting_round_id, new_proposal)
 							.map_err(|_| Error::<T>::StorageOverflow)?;
+						Self::deposit_event(Event::ProposalSubmitted(proposals.unwrap().len() as ProposalCount));
 					}
 				},
 				VotingPhases::PreVoting |

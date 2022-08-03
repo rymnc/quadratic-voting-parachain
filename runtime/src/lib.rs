@@ -34,6 +34,7 @@ use frame_support::{
 	},
 	PalletId,
 };
+use frame_support::traits::Randomness;
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -47,6 +48,7 @@ pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use sp_runtime::traits::{ConstU128, ConstU32, ConstU64};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -459,17 +461,31 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BlocksPerWeek: BlockNumber = 7 * 24 * 60 * MINUTES;
 	pub const BondForVotingRound: Balance = 200_000_000;
+	pub const BlocksForPreVotingPhase: u64 = 10;
+	pub const BlocksForVotingPhase: u64 = 10;
+	pub const MaxProposals: u32 = 10;
+	pub const OneBlock: u64 = 1;
 }
 
 /// Configure the pallet in pallets/quadratic-voting-pallet.
 impl quadratic_voting_pallet::Config for Runtime {
 	type Event = Event;
+	type BlocksForVotingPhase = BlocksForVotingPhase;
+	type OneBlock = OneBlock;
+	type BlocksForPostVotingPhase = ConstU64<10>;
+	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
+	type BlocksForProposalPhase = ConstU64<10>;
+	type BlocksForEnactmentPhase = ConstU64<10>;
+	type MaxProposals = MaxProposals;
 	type Token = Balances;
-	type BlocksPerWeek = BlocksPerWeek;
-	type BondForVotingRound = BondForVotingRound;
+	type BondForVotingRound = ConstU128<1000>;
+	type BondForProposal = ConstU128<20>;
+	type BondForVoting = ConstU128<1>;
 	type ManagerOrigin = EnsureRoot<AccountId>;
+	type MaxVotes = ConstU32<1000>;
+	type Randomness = Randomness<Hash, BlockNumber>;
+	type BucketSize = ConstU32<5>;
 }
 
 parameter_types! {
