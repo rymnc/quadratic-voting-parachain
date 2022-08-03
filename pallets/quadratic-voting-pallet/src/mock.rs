@@ -2,7 +2,7 @@ use crate as quadratic_voting_pallet;
 use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize, Randomness},
+	traits::{ConstU128, ConstU16, ConstU32, ConstU64, OnFinalize, OnInitialize},
 };
 use frame_support_test::TestRandomness;
 use frame_system as system;

@@ -1,6 +1,6 @@
-use crate::{mock::*, Config, Error, ProposalsForVotingRound, VotersForBucket, VotingPhases, VotingRounds, VoteDirection, VotersVotedOnProposal, ProposalOutcome, ProposalCount};
+use crate::{mock::*, Error, ProposalsForVotingRound, VotersForBucket, VotingPhases, VotingRounds, VoteDirection, VotersVotedOnProposal, ProposalOutcome, ProposalCount};
 use frame_support::{assert_noop, assert_ok};
-use pallet_identity::{Data, IdentityInfo};
+use pallet_identity::{IdentityInfo};
 use sp_runtime::traits::ConstU32;
 
 fn get_default_identity() -> Box<IdentityInfo<ConstU32<2>>> {

@@ -16,8 +16,8 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		bounded_vec,
+		BoundedVec,
 		pallet_prelude::*,
-		storage::bounded_vec::BoundedVec,
 		traits::{Currency, EnsureOrigin, Randomness, ReservableCurrency},
 	};
 	use frame_system::pallet_prelude::*;
