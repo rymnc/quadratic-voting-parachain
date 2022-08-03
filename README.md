@@ -89,11 +89,11 @@ This would require extending the identity pallet to have reputation.
 
 3. Dispatchable proposals are currently not implemented. When a proposal is finalized, we just deposit an Event. In the future, we should implement the dispatchable similar to how it is done in the [collective pallet](https://github.com/paritytech/substrate/blob/master/frame/collective/src/lib.rs#L184-L187).
 
-4. Votes are submitted simply as an aye or nay. This could lead to censorship since collators are able to look at the voters decision.
+4. Votes are submitted simply as an aye or nay, with the vote amount. This could lead to censorship since collators are able to look at the voters decision.
 A commit-reveal method could be used, however that would require an additional overhead on the client side, which needs to be connected to the internet throughout the voting and post-voting phases, to ensure that the vote is not invalidated.
 There is an old pallet for [zk](https://github.com/Polkadex-Substrate/megaclite) which could be used for zk-based voting, but this needs more research in the context of quadratic voting.
 
-5. Currently, the voters themselves tally the votes and submit disputes if the node submits an invalid tally. To follow Cardano's Governance system, ideally we should have a per-bucket "committee",
+5. Currently, the nodes themselves tally the votes. To follow Cardano's Governance system, ideally we should have a per-bucket "committee",
 which is selected by an inequality -
 
 	$$ hash(AccountId, Signature(Randomness)) ≤ Difficulty $$
