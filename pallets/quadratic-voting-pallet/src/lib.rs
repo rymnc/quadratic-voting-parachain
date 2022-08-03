@@ -15,7 +15,6 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
-		bounded_vec,
 		BoundedVec,
 		pallet_prelude::*,
 		traits::{Currency, EnsureOrigin, Randomness, ReservableCurrency},
@@ -25,6 +24,7 @@ pub mod pallet {
 	use rand_chacha::ChaChaRng;
 	use scale_info::TypeInfo;
 	use sp_runtime::traits::IntegerSquareRoot; // 0.1.1
+	use sp_std::vec::Vec;
 
 
 	// Ideally, these would be in a primitives directory
@@ -236,16 +236,10 @@ pub mod pallet {
 		VoterHasVotedForThisProposal,
 	}
 
+	#[derive(Default)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig {
 		pub voting_round_id: VotingRoundId,
-	}
-
-	#[cfg(feature = "std")]
-	impl Default for GenesisConfig {
-		fn default() -> Self {
-			Self { voting_round_id: 0 }
-		}
 	}
 
 	#[pallet::genesis_build]
@@ -306,8 +300,8 @@ pub mod pallet {
 								let who = unbounded[i].initializer.clone();
 								unbounded[i] = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
 									initializer: who,
-									ayes: bounded_vec![],
-									nays: bounded_vec![],
+									ayes: BoundedVec::<BalanceOf<T>, T::MaxVotes>::default(),
+									nays: BoundedVec::<BalanceOf<T>, T::MaxVotes>::default(),
 									bucket_id: Some(bucket_id as BucketId),
 								};
 							}
@@ -382,7 +376,7 @@ pub mod pallet {
 							weight += T::MaxVotes::get() as u64;
 							let voters = match VotersVoted::<T>::get((voting_round_id, i as ProposalCount)) {
 								Some(voters) => voters,
-								None => bounded_vec![],
+								None => BoundedVec::<AccountIdFor<T>, T::MaxVotes>::default(),
 							};
 
 							let bucket_id = &proposals[i].bucket_id.expect("qed");
@@ -493,8 +487,8 @@ pub mod pallet {
 					let proposals = ProposalsForVotingRound::<T>::get(voting_round_id);
 					let new_proposal = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
 						initializer: who.clone(),
-						ayes: bounded_vec![],
-						nays: bounded_vec![],
+						ayes: BoundedVec::<BalanceOf<T>, T::MaxVotes>::default(),
+						nays: BoundedVec::<BalanceOf<T>, T::MaxVotes>::default(),
 						bucket_id: None,
 					};
 
@@ -502,7 +496,10 @@ pub mod pallet {
 						let mut new_proposal_list: BoundedVec<
 							Proposal<T::AccountId, BalanceOf<T>, T::MaxVotes>,
 							T::MaxProposals,
-						> = bounded_vec![];
+						> = BoundedVec::<
+							Proposal<T::AccountId, BalanceOf<T>, T::MaxVotes>,
+						T::MaxProposals,
+						>::default();
 						// wouldn't actually error out
 						new_proposal_list
 							.try_insert(0 as usize, new_proposal)
@@ -632,7 +629,7 @@ pub mod pallet {
 
 					let mut past_voters = match VotersVoted::<T>::get((voting_round_id, proposal_id)) {
 						Some(past) => past,
-						None => bounded_vec![],
+						None => BoundedVec::<AccountIdFor<T>, T::MaxVotes>::default(),
 					};
 					past_voters.try_push(who.clone()).map_err(|_| Error::<T>::StorageOverflow)?;
 					VotersVoted::<T>::set((voting_round_id, proposal_id), Some(past_voters));

@@ -43,6 +43,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 pallet-identity = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 pallet-collective = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.26" }
@@ -102,6 +103,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-randomness-collective-flip/std",
 	"pallet-session/std",
 	"pallet-identity/std",
 	"pallet-sudo/std",

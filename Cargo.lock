@@ -5849,6 +5849,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-collective",
  "pallet-identity",
+ "pallet-randomness-collective-flip",
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
