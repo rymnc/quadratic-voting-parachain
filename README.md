@@ -2,6 +2,10 @@
 
 A [Cumulus](https://github.com/paritytech/cumulus/)-based Substrate node, which allows for quadratic voting with identities.
 
+## Test the pallet
+
+1. `cargo test -p quadratic-voting-pallet`
+
 ## Protocol Design
 
 The quadratic voting protocol takes hints from Cardano's Governance Model, and is designed to be compatible with the [Spec](https://mdpi-res.com/d_attachment/information/information-13-00305/article_deploy/information-13-00305-v3.pdf?version=1655859835) defined.
@@ -63,7 +67,7 @@ via XCM. This could enable this parachain to be used as a "Hub" for multiple par
 
 ### Self Made Pallets
 
-1. `pallet-quadratic-voting`
+1. `quadratic-voting-pallet`
 
 
 ## Future work and current constraints
