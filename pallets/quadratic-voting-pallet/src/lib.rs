@@ -168,6 +168,18 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn voters_voted)]
+	pub(super) type VotersVoted<T: Config> = StorageNMap<
+		_,
+		(
+			NMapKey<Blake2_128Concat, VotingRoundId>,
+			NMapKey<Blake2_128Concat, ProposalCount>,
+		),
+		BoundedVec<T::AccountId, T::MaxVotes>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn proposal_outcome)]
 	pub(super) type ProposalOutcome<T: Config> = StorageNMap<
 		_,
@@ -355,10 +367,24 @@ pub mod pallet {
 						// return voting round bond, proposal bound, and vote bond + transition state
 						T::Token::unreserve(&voting_round.initializer, T::BondForVotingRound::get());
 						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
-						for proposal in proposals {
-							T::Token::unreserve(&proposal.initializer, T::BondForProposal::get());
+						for i in 0..proposals.len() {
+							T::Token::unreserve(&proposals[i].initializer, T::BondForProposal::get());
+							let voters = match VotersVoted::<T>::get((voting_round_id, i as ProposalCount)) {
+								Some(voters) => voters,
+								None => bounded_vec![],
+							};
+
+							let bucket_id = &proposals[i].bucket_id.expect("qed");
+
+							for voter in voters {
+								// get their bond
+								let bond = VotersForBucket::<T>::get((voting_round_id, bucket_id, voter.clone())).expect("qed");
+								// we only return the bond of the voters who voted. In the event that the voter has votes left (upon voting), those are returned as well because
+								// it is possible that the voter did not intend to behave maliciously
+								T::Token::unreserve(&voter, bond.0);
+							}
 						}
-						// todo: figure out if account ids are gettable from nmap
+
 
 						// transition state
 						voting_round.phase = VotingPhases::Enactment;
@@ -589,6 +615,13 @@ pub mod pallet {
 						}
 					};
 
+
+					let mut past_voters = match VotersVoted::<T>::get((voting_round_id, proposal_id)) {
+						Some(past) => past,
+						None => bounded_vec![],
+					};
+					past_voters.try_push(who.clone()).map_err(|_| Error::<T>::StorageOverflow)?;
+					VotersVoted::<T>::set((voting_round_id, proposal_id), Some(past_voters));
 					proposals[proposal_id as usize] = Proposal::<T::AccountId, BalanceOf<T>, T::MaxVotes> {
 						initializer: proposal.initializer.clone(),
 						ayes: proposal.ayes.clone(),

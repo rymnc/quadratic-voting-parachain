@@ -35,7 +35,7 @@ All stages of voting are restricted to the users that have an identity - and hav
 
 1. The vote is enacted by the technical committee
 2. The bonds are returned to the proposers
-3. The stake is returned to the voters
+3. The bond is returned to the voters (it is important to note that only voters who participated in voting on at least one proposal gets their bond back, regardless of how much they bonded initialy. Only non-voters are slashed)
 
 ## Technical Details
 
