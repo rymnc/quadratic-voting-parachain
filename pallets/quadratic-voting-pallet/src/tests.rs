@@ -1,4 +1,4 @@
-use crate::{mock::*, Config, Error, ProposalsForVotingRound, VotersForBucket, VotingPhases, VotingRounds, VoteDirection, VotersVotedOnProposal};
+use crate::{mock::*, Config, Error, ProposalsForVotingRound, VotersForBucket, VotingPhases, VotingRounds, VoteDirection, VotersVotedOnProposal, ProposalOutcome, ProposalCount};
 use frame_support::{assert_noop, assert_ok};
 use pallet_identity::{Data, IdentityInfo};
 use sp_runtime::traits::ConstU32;
@@ -371,3 +371,41 @@ fn should_allow_vote() {
 		);
 	})
 }
+
+#[test]
+fn should_transition_to_post_voting() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+
+		set_identity(1);
+		set_identity(2);
+
+		for i in 0..MaxProposals::get() {
+			let origin = (i % 2) + 1;
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
+		}
+
+		run_to_block(BlocksForPreVotingPhase::get());
+
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3, 1));
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2, 1));
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + OneBlock::get());
+
+		assert_ok!(
+			QuadraticVotingPallet::vote(Origin::signed(2), 2, 1, VoteDirection::Aye),
+		);
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + OneBlock::get() * 2);
+
+		let key = (1u32, 2 as ProposalCount);
+
+		assert_eq!(
+			ProposalOutcome::<Test>::get(key).unwrap(),
+			(1, VoteDirection::Aye)
+		);
+
+		assert_eq!(VotingRounds::<Test>::get(1u32).unwrap().phase, VotingPhases::PostVoting);
+	})
+}
+
