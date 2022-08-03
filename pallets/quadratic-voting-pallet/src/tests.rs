@@ -409,3 +409,68 @@ fn should_transition_to_post_voting() {
 	})
 }
 
+#[test]
+fn should_transition_to_enactment() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+
+		set_identity(1);
+		set_identity(2);
+
+		for i in 0..MaxProposals::get() {
+			let origin = (i % 2) + 1;
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
+		}
+
+		run_to_block(BlocksForPreVotingPhase::get());
+
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3, 1));
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2, 1));
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + OneBlock::get());
+
+		assert_ok!(
+			QuadraticVotingPallet::vote(Origin::signed(2), 2, 1, VoteDirection::Aye),
+		);
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + OneBlock::get() * 2);
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + BlocksForEnactmentPhase::get() + OneBlock::get() * 3);
+
+		assert_eq!(VotingRounds::<Test>::get(1u32).unwrap().phase, VotingPhases::Enactment);
+	})
+}
+
+#[test]
+fn should_transition_to_finalization() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(QuadraticVotingPallet::start_voting_round(Origin::signed(1)));
+
+		set_identity(1);
+		set_identity(2);
+
+		for i in 0..MaxProposals::get() {
+			let origin = (i % 2) + 1;
+			assert_ok!(QuadraticVotingPallet::submit_proposal(Origin::signed(origin as AccountId)));
+		}
+
+		run_to_block(BlocksForPreVotingPhase::get());
+
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(1), 3, 1));
+		assert_ok!(QuadraticVotingPallet::register_to_vote(Origin::signed(2), 2, 1));
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + OneBlock::get());
+
+		assert_ok!(
+			QuadraticVotingPallet::vote(Origin::signed(2), 2, 1, VoteDirection::Aye),
+		);
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + OneBlock::get() * 2);
+
+		run_to_block(BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + BlocksForEnactmentPhase::get() + OneBlock::get() * 3);
+
+		run_to_block(BlocksForProposalPhase::get() + BlocksForPreVotingPhase::get() + BlocksForVotingPhase::get() + BlocksForPostVotingPhase::get() + BlocksForEnactmentPhase::get() + OneBlock::get() * 4);
+
+		assert_eq!(VotingRounds::<Test>::get(1u32).unwrap().phase, VotingPhases::Finalized);
+	})
+}

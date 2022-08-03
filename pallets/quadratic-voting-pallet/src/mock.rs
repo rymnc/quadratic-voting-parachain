@@ -97,8 +97,10 @@ parameter_types! {
 	pub const BlocksForPreVotingPhase: u64 = 10;
 	pub const BlocksForVotingPhase: u64 = 10;
 	pub const BlocksForPostVotingPhase: u64 = 10;
+	pub const BlocksForEnactmentPhase: u64 = 10;
 	pub const MaxProposals: u32 = 10;
 	pub const OneBlock: u64 = 1;
+	pub const BlocksForProposalPhase: u64 = 10;
 }
 
 impl quadratic_voting_pallet::Config for Test {
@@ -107,8 +109,8 @@ impl quadratic_voting_pallet::Config for Test {
 	type OneBlock = OneBlock;
 	type BlocksForPostVotingPhase = BlocksForPostVotingPhase;
 	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
-	type BlocksForProposalPhase = ConstU64<10>;
-	type BlocksForEnactmentPhase = ConstU64<10>;
+	type BlocksForProposalPhase = BlocksForProposalPhase;
+	type BlocksForEnactmentPhase = BlocksForEnactmentPhase;
 	type MaxProposals = MaxProposals;
 	type Token = Balances;
 	type BondForVotingRound = ConstU128<1000>;
