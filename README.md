@@ -110,3 +110,10 @@ which is selected by an inequality -
 
 8. Currently, we return the voting round creation bond and the proposal creation bond according to the value passed into the config. However, during a runtime upgrade, if
 the config for the bonds are changed, then that would lead to erroneous values being returned to the party upon vote execution. A simple solve for this would be to store the bond amount.
+
+## Todos
+
+1. Add up the weights in the on_initialize hook
+2. Add more events, actually deposit the events
+3. Update the parachain runtime with the new config
+4. Add tests, tests and more tests
