@@ -102,20 +102,20 @@ parameter_types! {
 
 impl quadratic_voting_pallet::Config for Test {
 	type Event = Event;
-	type Token = Balances;
-	type BlocksForProposalPhase = ConstU64<10>;
-	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
-	type BlocksForPostVotingPhase = ConstU64<10>;
-	type OneBlock = OneBlock;
 	type BlocksForVotingPhase = BlocksForVotingPhase;
+	type OneBlock = OneBlock;
+	type BlocksForPostVotingPhase = ConstU64<10>;
+	type BlocksForPreVotingPhase = BlocksForPreVotingPhase;
+	type BlocksForProposalPhase = ConstU64<10>;
 	type BlocksForEnactmentPhase = ConstU64<10>;
+	type MaxProposals = MaxProposals;
+	type Token = Balances;
 	type BondForVotingRound = ConstU128<1000>;
 	type BondForProposal = ConstU128<20>;
-	type MaxProposals = MaxProposals;
+	type BondForVoting = ConstU128<1>;
 	type ManagerOrigin = EnsureAlice;
 	type MaxVotes = ConstU32<1000>;
 	type Randomness = TestRandomness<Self>;
-	type BondForVoting = ConstU128<1>;
 	type BucketSize = ConstU32<5>;
 }
 

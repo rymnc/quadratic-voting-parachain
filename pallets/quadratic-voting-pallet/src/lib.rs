@@ -352,8 +352,17 @@ pub mod pallet {
 				},
 				VotingPhases::PostVoting => {
 					if block_number == voting_round.post_voting_phase.end_block {
-						// return bond and stake + transition state
-						todo!();
+						// return voting round bond, proposal bound, and vote bond + transition state
+						T::Token::unreserve(&voting_round.initializer, T::BondForVotingRound::get());
+						let proposals = ProposalsForVotingRound::<T>::get(voting_round_id).expect("qed");
+						for proposal in proposals {
+							T::Token::unreserve(&proposal.initializer, T::BondForProposal::get());
+						}
+						// todo: figure out if account ids are gettable from nmap
+
+						// transition state
+						voting_round.phase = VotingPhases::Enactment;
+						VotingRounds::<T>::set(voting_round_id, Some(voting_round));
 					}
 				},
 				VotingPhases::Enactment => {
