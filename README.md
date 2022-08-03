@@ -117,7 +117,7 @@ the config for the bonds are changed, then that would lead to erroneous values b
 
 1. "A more complex proposal system where users can vote on multiple things at once, and have to consider how they want to distribute their votes across them."
 2. "Integrate this into a working node."
-3. "Integrate node as a working parachain on a relay chain."
+3. "Integrate node as a working parachain on a relay chain." ~ in progress
 
 ## Todos
 
